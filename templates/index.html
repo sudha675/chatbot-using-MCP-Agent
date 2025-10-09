@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chatbot</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>AI Chatbot</title>
     <style>
         * {
             margin: 0;
@@ -16,73 +15,66 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: #000000;
             color: #ffffff;
-            height: 100vh;
-            overflow: hidden;
-        }
-
-        .chat-container {
-            width: 100%;
-            height: 100vh;
-            background: #000000;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
         }
 
-        .chat-header {
-            background: #000000;
-            color: #3b82f6;
-            padding: 15px 20px;
-            text-align: center;
-            border-bottom: 1px solid #333;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            min-height: 70px;
-        }
-
-        .chat-header h1 {
-            font-size: 28px;
-            font-weight: 600;
-            margin: 0;
-        }
-
-        .new-chat-button {
-            background: #374151;
-            color: white;
-            border: none;
-            border-radius: 20px;
-            padding: 10px 20px;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            transition: background-color 0.2s ease;
-            position: absolute;
-            left: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-        }
-
-        .new-chat-button:hover {
-            background: #4b5563;
-            transform: translateY(-50%) scale(1.05);
-        }
-
-        .chat-messages {
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            padding: 0;
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        .header {
+            text-align: center;
             padding: 20px;
+            border-bottom: 1px solid #333;
+            background: #0a0a0a;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #888;
+            font-size: 1.1rem;
+        }
+
+        .chat-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: #111;
+            overflow: hidden;
+        }
+
+        .messages {
+            flex: 1;
+            padding: 30px;
             overflow-y: auto;
-            background: #000000;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
         }
 
         .message {
-            margin-bottom: 20px;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            animation: fadeIn 0.3s ease-in;
+            max-width: 80%;
+            padding: 20px 25px;
+            border-radius: 20px;
+            line-height: 1.6;
+            animation: fadeIn 0.3s ease;
+            font-size: 1.1rem;
         }
 
         @keyframes fadeIn {
@@ -90,734 +82,590 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        .message.user {
-            flex-direction: row-reverse;
-        }
-
-        .avatar {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
+        .user-message {
+            align-self: flex-end;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            flex-shrink: 0;
-            font-size: 18px;
+            border-bottom-right-radius: 5px;
         }
 
-        .user .avatar {
-            background: #3b82f6;
+        .assistant-message {
+            align-self: flex-start;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #e0e0e0;
+            border-bottom-left-radius: 5px;
         }
 
-        .assistant .avatar {
-            background: #10b981;
-        }
-
-        .message-content {
-            max-width: 70%;
-            padding: 16px 20px;
-            border-radius: 20px;
-            line-height: 1.6;
-            word-wrap: break-word;
-            font-size: 15px;
-        }
-
-        .user .message-content {
-            background: #3b82f6;
-            color: white;
-            border-bottom-right-radius: 8px;
-        }
-
-        .assistant .message-content {
-            background: #1f2937;
-            color: #f3f4f6;
-            border: 1px solid #374151;
-            border-bottom-left-radius: 8px;
-        }
-
-        .chat-input-container {
+        .assistant-message pre {
+            background: #000;
             padding: 20px;
-            border-top: 1px solid #333;
-            background: #000000;
+            border-radius: 12px;
+            overflow-x: auto;
+            margin: 15px 0;
+            border: 1px solid #333;
+            font-size: 0.95rem;
         }
 
-        .input-group {
+        .assistant-message code {
+            background: #000;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            border: 1px solid #333;
+            font-size: 0.9rem;
+        }
+
+        .input-area {
+            padding: 25px 30px;
+            border-top: 1px solid #333;
+            background: #0a0a0a;
+        }
+
+        .input-container {
             display: flex;
-            gap: 12px;
+            gap: 15px;
             align-items: flex-end;
             max-width: 1200px;
             margin: 0 auto;
         }
 
-        .input-area {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        #user-input {
-            width: 100%;
-            padding: 16px 20px;
-            border: 2px solid #374151;
-            border-radius: 25px;
-            font-size: 16px;
-            resize: none;
-            max-height: 120px;
-            background: #111827;
-            color: #ffffff;
-            font-family: inherit;
-            transition: all 0.3s ease;
-        }
-
-        #user-input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            background: #1f2937;
-        }
-
-        #user-input::placeholder {
-            color: #9ca3af;
-        }
-
-        .upload-section {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 0 10px;
-        }
-
-        .upload-button {
-            background: transparent;
-            color: #9ca3af;
-            border: 2px dashed #374151;
-            border-radius: 12px;
-            padding: 8px 16px;
-            cursor: pointer;
-            font-size: 14px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            transition: all 0.2s ease;
-        }
-
-        .upload-button:hover {
-            border-color: #3b82f6;
-            color: #3b82f6;
-            transform: scale(1.05);
-        }
-
-        .upload-info {
-            font-size: 14px;
-            color: #9ca3af;
-            flex: 1;
-        }
-
-        .upload-info.has-image {
-            color: #10b981;
-        }
-
-        .remove-image {
-            background: #ef4444;
-            color: white;
-            border: none;
+        .upload-btn {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #667eea;
+            padding: 15px;
             border-radius: 50%;
-            width: 32px;
-            height: 32px;
             cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.8rem;
+            width: 60px;
+            height: 60px;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
+            font-weight: 300;
         }
 
-        .remove-image:hover {
-            background: #dc2626;
+        .upload-btn:hover {
+            background: #222;
+            border-color: #667eea;
             transform: scale(1.1);
         }
 
-        .file-input {
-            display: none;
-        }
-
-        .send-button {
-            background: #3b82f6;
+        .message-input {
+            flex: 1;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 30px;
+            padding: 20px 25px;
             color: white;
+            font-size: 1.1rem;
+            resize: none;
+            min-height: 60px;
+            max-height: 150px;
+            font-family: inherit;
+        }
+
+        .message-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+        }
+
+        .message-input::placeholder {
+            color: #666;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
-            border-radius: 50%;
-            width: 50px;
-            height: 50px;
+            color: white;
+            padding: 18px 35px;
+            border-radius: 30px;
             cursor: pointer;
-            font-size: 18px;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
+            font-size: 1.1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            min-width: 120px;
         }
 
-        .send-button:hover {
-            background: #2563eb;
+        .send-btn:hover {
             transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
         }
 
-        .send-button:disabled {
-            opacity: 0.6;
+        .send-btn:disabled {
+            background: #333;
             cursor: not-allowed;
             transform: none;
+            box-shadow: none;
+        }
+
+        .image-preview {
+            margin-top: 15px;
+            text-align: center;
+        }
+
+        .image-preview img {
+            max-width: 300px;
+            max-height: 200px;
+            border-radius: 12px;
+            border: 2px solid #667eea;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .remove-image {
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        .remove-image:hover {
+            background: #ff3742;
+            transform: scale(1.05);
         }
 
         .typing-indicator {
             display: none;
-            align-items: center;
-            gap: 12px;
-            color: #9ca3af;
-            margin: 10px 0;
-            padding: 0 20px;
+            align-self: flex-start;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            padding: 20px 25px;
+            border-radius: 20px;
+            border-bottom-left-radius: 5px;
+            color: #888;
+            font-size: 1.1rem;
         }
 
         .typing-dots {
-            display: flex;
-            gap: 4px;
+            display: inline-block;
         }
 
-        .typing-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: #3b82f6;
-            animation: typing 1.4s infinite ease-in-out;
+        .typing-dots span {
+            animation: typing 1.4s infinite;
+            display: inline-block;
         }
 
-        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
-        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        .typing-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .typing-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
 
         @keyframes typing {
-            0%, 80%, 100% { transform: scale(0.8); opacity: 0.5; }
-            40% { transform: scale(1); opacity: 1; }
+            0%, 60%, 100% { transform: translateY(0); }
+            30% { transform: translateY(-5px); }
+        }
+
+        /* Scrollbar styling */
+        .messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .messages::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+
+        .messages::-webkit-scrollbar-thumb {
+            background: #667eea;
+            border-radius: 4px;
+        }
+
+        .messages::-webkit-scrollbar-thumb:hover {
+            background: #764ba2;
+        }
+
+        .conversation-starter {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin: 40px 0;
+            font-size: 1.2rem;
         }
 
         .welcome-message {
             text-align: center;
-            color: #9ca3af;
-            padding: 60px 20px;
-        }
-
-        .welcome-message i {
-            font-size: 64px;
-            margin-bottom: 20px;
-            color: #3b82f6;
-        }
-
-        .welcome-message h2 {
-            margin-bottom: 12px;
-            color: #ffffff;
-            font-size: 24px;
-        }
-
-        .welcome-message p {
-            font-size: 16px;
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
             line-height: 1.6;
         }
 
-        .image-preview {
-            max-width: 200px;
-            max-height: 150px;
-            border-radius: 8px;
-            border: 2px solid #374151;
+        .capabilities {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin: 30px 0;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
         }
 
-        .image-message {
-            max-width: 300px;
-            margin: 10px 0;
+        .capability-item {
+            background: #1a1a1a;
+            padding: 20px;
             border-radius: 12px;
-            overflow: hidden;
-            border: 2px solid #374151;
+            border: 1px solid #333;
+            text-align: center;
+            transition: all 0.3s ease;
         }
 
-        .image-message img {
-            width: 100%;
-            height: auto;
+        .capability-item:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+        }
+
+        .capability-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
             display: block;
         }
 
-        .image-caption {
-            background: #374151;
-            padding: 8px 12px;
-            font-size: 12px;
-            color: #9ca3af;
-            text-align: center;
+        .capability-text {
+            color: #ccc;
+            font-size: 0.95rem;
         }
 
-        /* Message formatting */
-        .assistant .message-content strong {
-            color: #3b82f6;
-        }
-
-        .assistant .message-content em {
-            color: #10b981;
-            font-style: italic;
-        }
-
-        .assistant .message-content code {
-            background: #374151;
-            color: #10b981;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-family: 'Courier New', monospace;
-            font-size: 14px;
-        }
-
-        .assistant .message-content ul,
-        .assistant .message-content ol {
-            margin: 8px 0;
-            padding-left: 20px;
-        }
-
-        .assistant .message-content li {
-            margin: 4px 0;
-        }
-
-        /* Scrollbar styling */
-        .chat-messages::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .chat-messages::-webkit-scrollbar-track {
-            background: #111827;
-            border-radius: 4px;
-        }
-
-        .chat-messages::-webkit-scrollbar-thumb {
-            background: #374151;
-            border-radius: 4px;
-        }
-
-        .chat-messages::-webkit-scrollbar-thumb:hover {
-            background: #4b5563;
-        }
-
+        /* Responsive design */
         @media (max-width: 768px) {
-            .chat-header {
-                padding: 12px 15px;
-                min-height: 60px;
+            .messages {
+                padding: 20px;
             }
             
-            .chat-header h1 {
-                font-size: 22px;
+            .message {
+                max-width: 90%;
+                padding: 15px 20px;
+                font-size: 1rem;
             }
             
-            .new-chat-button {
-                position: relative;
-                left: 0;
-                top: 0;
-                transform: none;
-                margin-right: auto;
-                padding: 8px 16px;
-                font-size: 13px;
+            .header h1 {
+                font-size: 2rem;
             }
             
-            .chat-header {
-                display: flex;
-                justify-content: space-between;
+            .input-area {
+                padding: 20px;
+            }
+            
+            .input-container {
                 gap: 10px;
             }
             
-            .message-content {
-                max-width: 85%;
-                padding: 12px 16px;
+            .upload-btn {
+                width: 50px;
+                height: 50px;
+                font-size: 1.5rem;
+                padding: 12px;
             }
             
-            .chat-messages {
-                padding: 15px;
+            .message-input {
+                padding: 15px 20px;
+                font-size: 1rem;
             }
             
-            .chat-input-container {
-                padding: 15px;
-            }
-            
-            #user-input {
-                padding: 14px 18px;
-            }
-
-            .upload-section {
-                padding: 0 5px;
-            }
-
-            .image-preview {
-                max-width: 150px;
-                max-height: 120px;
+            .send-btn {
+                padding: 15px 25px;
+                font-size: 1rem;
+                min-width: 100px;
             }
         }
 
-        @media (max-width: 480px) {
-            .chat-header h1 {
-                font-size: 20px;
-            }
-            
-            .new-chat-button {
-                padding: 6px 12px;
-                font-size: 12px;
-            }
-            
-            .new-chat-button span {
-                display: none;
-            }
-            
-            .new-chat-button i {
-                margin-right: 0;
-            }
+        .hidden {
+            display: none !important;
+        }
 
-            .upload-button span {
-                display: none;
-            }
+        /* Message timestamp */
+        .message-time {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 5px;
+            text-align: right;
+        }
 
-            .upload-button {
-                padding: 8px;
-            }
-
-            .upload-info {
-                font-size: 12px;
-            }
+        .user-message .message-time {
+            color: rgba(255, 255, 255, 0.7);
         }
     </style>
 </head>
 <body>
-    <div class="chat-container">
-        <div class="chat-header">
-            <button class="new-chat-button" onclick="newChat()">
-                <i class="fas fa-plus"></i>
-                <span>New Chat</span>
-            </button>
-            <h1>Chatbot</h1>
+    <div class="container">
+        <div class="header">
+            <h1>AI Assistant</h1>
+            <p>Your intelligent companion for weather, news, calculations, and image analysis</p>
         </div>
 
-        <div class="chat-messages" id="chat-messages">
-            <div class="welcome-message">
-                <i class="fas fa-robot"></i>
-                <h2>Welcome to Chatbot</h2>
-                <p>Start a conversation by typing a message below</p>
-            </div>
-        </div>
-
-        <div class="typing-indicator" id="typing-indicator">
-            <div class="typing-dots">
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-                <div class="typing-dot"></div>
-            </div>
-            <span>AI is thinking...</span>
-        </div>
-
-        <div class="chat-input-container">
-            <div class="input-group">
-                <div class="input-area">
-                    <textarea 
-                        id="user-input" 
-                        placeholder="Type your message..." 
-                        rows="1"
-                        onkeydown="handleKeyDown(event)"
-                    ></textarea>
-                    <div class="upload-section">
-                        <button class="upload-button" onclick="document.getElementById('file-input').click()">
-                            <i class="fas fa-image"></i>
-                            <span>Upload Image</span>
-                        </button>
-                        <input type="file" id="file-input" class="file-input" accept="image/*" onchange="handleImageUpload(event)">
-                        <div class="upload-info" id="upload-info">
-                            No image selected
-                        </div>
-                        <button class="remove-image" id="remove-image" onclick="removeImage()" style="display: none;">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    <div id="image-preview"></div>
+        <div class="chat-area">
+            <div class="messages" id="messages">
+                <div class="conversation-starter">
+                    Start a conversation with your AI assistant
                 </div>
-                <button class="send-button" onclick="sendMessage()" id="send-button">
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+                <div class="welcome-message">
+                    I can help you with:
+                </div>
+                <div class="capabilities">
+                    <div class="capability-item">
+                        <span class="capability-icon">🌤️</span>
+                        <div class="capability-text">Real-time weather information for any location</div>
+                    </div>
+                    <div class="capability-item">
+                        <span class="capability-icon">📰</span>
+                        <div class="capability-text">Latest news and breaking news headlines</div>
+                    </div>
+                    <div class="capability-item">
+                        <span class="capability-icon">🔢</span>
+                        <div class="capability-text">Mathematical calculations and unit conversions</div>
+                    </div>
+                    <div class="capability-item">
+                        <span class="capability-icon">🖼️</span>
+                        <div class="capability-text">Image analysis and description</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-area">
+                <div class="input-container">
+                    <label class="upload-btn" for="imageUpload">
+                        +
+                        <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
+                    </label>
+                    <textarea 
+                        class="message-input" 
+                        id="messageInput" 
+                        placeholder="Type your message..." 
+                        onkeypress="handleKeyPress(event)"
+                    ></textarea>
+                    <button class="send-btn" onclick="sendMessage()" id="sendBtn">
+                        Send
+                    </button>
+                </div>
+                <div class="image-preview" id="imagePreview"></div>
             </div>
         </div>
     </div>
 
     <script>
-        let currentConversationId = null;
-        let currentImageData = null;
+        let currentImage = null;
+        let conversationId = '';
 
-        // Auto-resize textarea
-        const textarea = document.getElementById('user-input');
-        textarea.addEventListener('input', function() {
-            this.style.height = 'auto';
-            this.style.height = (this.scrollHeight) + 'px';
-        });
+        // Initialize conversation
+        async function initConversation() {
+            try {
+                const response = await fetch('/new_chat', { method: 'POST' });
+                const data = await response.json();
+                conversationId = data.conversation_id;
+            } catch (error) {
+                console.error('Error initializing conversation:', error);
+            }
+        }
 
-        // Handle keyboard events
-        function handleKeyDown(event) {
+        // Handle image upload
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentImage = e.target.result;
+                    showImagePreview(currentImage);
+                    // Clear the file input
+                    event.target.value = '';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Show image preview
+        function showImagePreview(imageData) {
+            const preview = document.getElementById('imagePreview');
+            preview.innerHTML = `
+                <img src="${imageData}" alt="Uploaded image">
+                <button class="remove-image" onclick="removeImage()">Remove Image</button>
+            `;
+        }
+
+        // Remove uploaded image
+        function removeImage() {
+            currentImage = null;
+            document.getElementById('imagePreview').innerHTML = '';
+        }
+
+        // Handle Enter key press
+        function handleKeyPress(event) {
             if (event.key === 'Enter' && !event.shiftKey) {
                 event.preventDefault();
                 sendMessage();
             }
         }
 
-        // Show typing indicator
-        function showTyping() {
-            document.getElementById('typing-indicator').style.display = 'flex';
-            scrollToBottom();
-        }
-
-        // Hide typing indicator
-        function hideTyping() {
-            document.getElementById('typing-indicator').style.display = 'none';
-        }
-
-        // Scroll to bottom of chat
-        function scrollToBottom() {
-            const chatMessages = document.getElementById('chat-messages');
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-        }
-
-        // Handle image upload
-        function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            // Check if file is an image
-            if (!file.type.startsWith('image/')) {
-                alert('Please select a valid image file (JPEG, PNG, GIF, etc.)');
-                return;
-            }
-
-            // Check file size (max 10MB)
-            if (file.size > 10 * 1024 * 1024) {
-                alert('Image size should be less than 10MB');
-                return;
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                currentImageData = e.target.result;
-                
-                // Update UI
-                document.getElementById('upload-info').textContent = file.name;
-                document.getElementById('upload-info').classList.add('has-image');
-                document.getElementById('remove-image').style.display = 'flex';
-                
-                // Show preview
-                const preview = document.getElementById('image-preview');
-                preview.innerHTML = `
-                    <img src="${currentImageData}" alt="Uploaded Image" class="image-preview">
-                `;
-                
-                // Update input placeholder
-                document.getElementById('user-input').placeholder = 'Ask about this image...';
-                
-                // Auto-focus on input
-                document.getElementById('user-input').focus();
-            };
-            
-            reader.readAsDataURL(file);
-        }
-
-        // Remove uploaded image
-        function removeImage() {
-            currentImageData = null;
-            document.getElementById('file-input').value = '';
-            document.getElementById('upload-info').textContent = 'No image selected';
-            document.getElementById('upload-info').classList.remove('has-image');
-            document.getElementById('remove-image').style.display = 'none';
-            document.getElementById('image-preview').innerHTML = '';
-            document.getElementById('user-input').placeholder = 'Type your message...';
-        }
-
-        // Add image message to chat
-        function addImageMessage(imageData, caption = 'Image') {
-            const chatMessages = document.getElementById('chat-messages');
-            
-            const messageDiv = document.createElement('div');
-            messageDiv.className = 'message user';
-            
-            const avatar = document.createElement('div');
-            avatar.className = 'avatar';
-            avatar.innerHTML = '<i class="fas fa-user"></i>';
-            
-            const messageContent = document.createElement('div');
-            messageContent.className = 'message-content';
-            messageContent.innerHTML = `
-                <div class="image-message">
-                    <img src="${imageData}" alt="${caption}">
-                    <div class="image-caption">${caption}</div>
-                </div>
-            `;
-
-            messageDiv.appendChild(avatar);
-            messageDiv.appendChild(messageContent);
-            chatMessages.appendChild(messageDiv);
-            
-            scrollToBottom();
-        }
-
-        // Format message content with proper HTML
-        function formatMessageContent(content) {
-            if (!content) return '';
-            
-            // Convert markdown-style formatting to HTML
-            content = content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            content = content.replace(/\*(.*?)\*/g, '<em>$1</em>');
-            content = content.replace(/`(.*?)`/g, '<code>$1</code>');
-            
-            // Convert line breaks
-            content = content.replace(/\n/g, '<br>');
-            
-            return content;
-        }
-
-        // Add message to chat
-        function addMessage(content, isUser = false) {
-            const chatMessages = document.getElementById('chat-messages');
-            
-            // Remove welcome message if it's the first message
-            const welcomeMessage = chatMessages.querySelector('.welcome-message');
-            if (welcomeMessage && isUser) {
-                chatMessages.innerHTML = '';
-            }
-
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `message ${isUser ? 'user' : 'assistant'}`;
-            
-            const avatar = document.createElement('div');
-            avatar.className = 'avatar';
-            avatar.innerHTML = isUser ? '<i class="fas fa-user"></i>' : '<i class="fas fa-robot"></i>';
-            
-            const messageContent = document.createElement('div');
-            messageContent.className = 'message-content';
-            
-            // Format the content with proper HTML
-            messageContent.innerHTML = formatMessageContent(content);
-
-            messageDiv.appendChild(avatar);
-            messageDiv.appendChild(messageContent);
-            chatMessages.appendChild(messageDiv);
-            
-            scrollToBottom();
-        }
-
-        // Send message to server
+        // Send message function
         async function sendMessage() {
-            const input = document.getElementById('user-input');
-            const message = input.value.trim();
-            
-            if (!message && !currentImageData) {
-                alert('Please enter a message or upload an image');
-                return;
-            }
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            const sendBtn = document.getElementById('sendBtn');
 
-            // Disable input while processing
-            input.disabled = true;
-            document.getElementById('send-button').disabled = true;
+            if (!message && !currentImage) return;
+
+            // Disable send button
+            sendBtn.disabled = true;
+            messageInput.disabled = true;
 
             // Add user message to chat
-            if (message) {
-                addMessage(message, true);
-            }
+            addMessage(message, 'user');
             
-            // Add image to chat if uploaded
-            if (currentImageData) {
-                addImageMessage(currentImageData, 'Uploaded Image');
+            // Clear input and remove image preview immediately
+            messageInput.value = '';
+            if (currentImage) {
+                document.getElementById('imagePreview').innerHTML = '';
             }
-            
-            input.value = '';
-            input.style.height = 'auto';
 
             // Show typing indicator
-            showTyping();
+            showTypingIndicator();
 
             try {
+                const payload = {
+                    message: message,
+                    image: currentImage,
+                    conversation_id: conversationId
+                };
+
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({
-                        message: message,
-                        image: currentImageData,
-                        conversation_id: currentConversationId
-                    })
+                    body: JSON.stringify(payload)
                 });
 
                 const data = await response.json();
 
-                if (response.ok) {
-                    // Store conversation ID
-                    currentConversationId = data.conversation_id;
-                    
-                    // Add bot response
-                    hideTyping();
-                    addMessage(data.response, false);
-                    
-                    // Clear image after successful send
-                    removeImage();
+                // Hide typing indicator
+                hideTypingIndicator();
+
+                if (data.error) {
+                    addMessage('Error: ' + data.error, 'assistant');
                 } else {
-                    hideTyping();
-                    let errorMsg = data.error || 'Unknown error occurred';
-                    if (errorMsg.includes('internal server error')) {
-                        errorMsg = 'Sorry, I encountered a temporary issue. Please try again.';
-                    }
-                    addMessage(`Error: ${errorMsg}`, false);
+                    addMessage(data.response, 'assistant');
+                    conversationId = data.conversation_id;
                 }
+
+                // Clear current image after sending
+                currentImage = null;
+
             } catch (error) {
-                hideTyping();
-                addMessage('Network error: Please check your connection and try again.', false);
+                hideTypingIndicator();
+                addMessage('Sorry, I encountered an error. Please try again.', 'assistant');
+                console.error('Error:', error);
             } finally {
-                // Re-enable input
-                input.disabled = false;
-                document.getElementById('send-button').disabled = false;
-                input.focus();
+                // Re-enable inputs
+                sendBtn.disabled = false;
+                messageInput.disabled = false;
+                messageInput.focus();
             }
         }
 
-        // Start new chat
-        async function newChat() {
-            try {
-                const response = await fetch('/new_chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                });
+        // Add message to chat
+        function addMessage(content, sender) {
+            const messagesDiv = document.getElementById('messages');
+            const starter = messagesDiv.querySelector('.conversation-starter');
+            const welcome = messagesDiv.querySelector('.welcome-message');
+            const capabilities = messagesDiv.querySelector('.capabilities');
+            
+            if (starter) starter.remove();
+            if (welcome) welcome.remove();
+            if (capabilities) capabilities.remove();
 
-                const data = await response.json();
-                currentConversationId = data.conversation_id;
-                currentImageData = null;
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}-message`;
+            
+            if (sender === 'user') {
+                if (content) {
+                    messageDiv.textContent = content;
+                } else if (currentImage) {
+                    messageDiv.textContent = '[Image Uploaded]';
+                }
                 
-                // Clear upload area
-                document.getElementById('upload-info').textContent = 'No image selected';
-                document.getElementById('upload-info').classList.remove('has-image');
-                document.getElementById('remove-image').style.display = 'none';
-                document.getElementById('image-preview').innerHTML = '';
-                document.getElementById('file-input').value = '';
-                document.getElementById('user-input').placeholder = 'Type your message...';
+                // Add timestamp
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'message-time';
+                timeDiv.textContent = getCurrentTime();
+                messageDiv.appendChild(timeDiv);
+            } else {
+                // Format assistant response
+                messageDiv.innerHTML = formatResponse(content);
                 
-                // Clear chat messages and show welcome
-                const chatMessages = document.getElementById('chat-messages');
-                chatMessages.innerHTML = `
-                    <div class="welcome-message">
-                        <i class="fas fa-robot"></i>
-                        <h2>New Chat Started</h2>
-                        <p>Start a conversation by typing a message below</p>
-                    </div>
-                `;
-                
-            } catch (error) {
-                console.error('Error starting new chat:', error);
-                addMessage(`Error starting new chat: ${error.message}`, false);
+                // Add timestamp
+                const timeDiv = document.createElement('div');
+                timeDiv.className = 'message-time';
+                timeDiv.textContent = getCurrentTime();
+                messageDiv.appendChild(timeDiv);
+            }
+
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Get current time for timestamp
+        function getCurrentTime() {
+            return new Date().toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        }
+
+        // Format assistant response
+        function formatResponse(text) {
+            // Convert line breaks to <br>
+            let formatted = text.replace(/\n/g, '<br>');
+            
+            // Format code blocks (between ```)
+            formatted = formatted.replace(/```([^`]+)```/g, '<pre>$1</pre>');
+            
+            // Format inline code (between `)
+            formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+            
+            // Format bold text (between **)
+            formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            
+            return formatted;
+        }
+
+        // Show typing indicator
+        function showTypingIndicator() {
+            const messagesDiv = document.getElementById('messages');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing-indicator';
+            typingDiv.id = 'typingIndicator';
+            typingDiv.innerHTML = 'AI is thinking<span class="typing-dots"><span>.</span><span>.</span><span>.</span></span>';
+            messagesDiv.appendChild(typingDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        // Hide typing indicator
+        function hideTypingIndicator() {
+            const typingIndicator = document.getElementById('typingIndicator');
+            if (typingIndicator) {
+                typingIndicator.remove();
             }
         }
 
-        // Initialize
+        // Initialize when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            document.getElementById('user-input').focus();
+            initConversation();
+            document.getElementById('messageInput').focus();
+        });
+
+        // Auto-resize textarea
+        document.getElementById('messageInput').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
         });
     </script>
 </body>
