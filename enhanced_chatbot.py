@@ -2,9 +2,109 @@ import requests
 import base64
 import io
 import re
+import json
+import time
 from PIL import Image
 import pytesseract
 from mcp_tools import MCPClient
+
+class ConversationMemory:
+    """Handles conversation context and memory"""
+    
+    def __init__(self, max_history=10):
+        self.conversation_history = []
+        self.max_history = max_history
+        self.current_context = {}
+    
+    def add_interaction(self, user_message, assistant_response):
+        """Add a conversation turn to history"""
+        interaction = {
+            'user': user_message,
+            'assistant': assistant_response,
+            'timestamp': time.time()
+        }
+        
+        self.conversation_history.append(interaction)
+        
+        # Keep only recent history
+        if len(self.conversation_history) > self.max_history:
+            self.conversation_history.pop(0)
+        
+        # Update current context
+        self._update_context(user_message, assistant_response)
+    
+    def _update_context(self, user_message, assistant_response):
+        """Update current context based on the conversation"""
+        # Extract potential topics from messages
+        topics = self._extract_topics(user_message + " " + assistant_response)
+        self.current_context = {
+            'last_user_message': user_message,
+            'last_assistant_response': assistant_response,
+            'topics': topics,
+            'conversation_length': len(self.conversation_history)
+        }
+    
+    def _extract_topics(self, text):
+        """Extract main topics from text"""
+        topics = set()
+        
+        # Common topic patterns
+        topic_patterns = {
+            'ai': ['ai', 'artificial intelligence', 'machine learning', 'ml', 'neural network'],
+            'technology': ['technology', 'tech', 'software', 'computer', 'digital', 'programming'],
+            'science': ['science', 'scientific', 'research', 'experiment'],
+            'weather': ['weather', 'temperature', 'climate', 'forecast'],
+            'news': ['news', 'headlines', 'current events', 'breaking'],
+            'education': ['education', 'learn', 'study', 'teaching', 'school'],
+            'business': ['business', 'company', 'industry', 'market'],
+            'health': ['health', 'medical', 'medicine', 'doctor'],
+        }
+        
+        text_lower = text.lower()
+        for topic, keywords in topic_patterns.items():
+            if any(keyword in text_lower for keyword in keywords):
+                topics.add(topic)
+        
+        return list(topics)
+    
+    def get_conversation_context(self):
+        """Get formatted context for the AI"""
+        if not self.conversation_history:
+            return "No previous conversation."
+        
+        context = "Previous conversation:\n"
+        for i, interaction in enumerate(self.conversation_history[-3:], 1):  # Last 3 exchanges
+            context += f"{i}. User: {interaction['user']}\n"
+            context += f"   Assistant: {interaction['assistant'][:100]}...\n"
+        
+        return context
+    
+    def is_follow_up_question(self, current_message):
+        """Check if current message is a follow-up to previous conversation"""
+        if len(self.conversation_history) < 1:
+            return False
+        
+        last_interaction = self.conversation_history[-1]
+        last_user_msg = last_interaction['user'].lower()
+        current_msg = current_message.lower()
+        
+        # Follow-up indicators
+        follow_up_indicators = [
+            'it', 'that', 'this', 'those', 'these',
+            'how about', 'what about', 'and what', 'also',
+            'in that case', 'following that',
+            'where', 'when', 'how', 'why', 'who'
+        ]
+        
+        # Check for pronouns and follow-up phrases
+        has_follow_up_indicators = any(indicator in current_msg for indicator in follow_up_indicators)
+        
+        # Check if topics are related
+        previous_topics = set(self._extract_topics(last_user_msg))
+        current_topics = set(self._extract_topics(current_msg))
+        topics_related = len(previous_topics.intersection(current_topics)) > 0
+        
+        return has_follow_up_indicators or topics_related
 
 class EnhancedChatbot:
     def __init__(self):
@@ -14,10 +114,11 @@ class EnhancedChatbot:
         self.available_models = self.get_available_models()
         self.ocr_available = self.check_ocr_availability()
         
-        # Initialize MCP Client
+        # Initialize MCP Client and Conversation Memory
         self.mcp_client = MCPClient()
+        self.memory = ConversationMemory()
         
-        print("🤖 Enhanced Chatbot initialized with contextual responses")
+        print("🤖 Enhanced Chatbot initialized with conversation memory")
 
     def check_ocr_availability(self):
         """Check if OCR (Tesseract) is available."""
@@ -112,8 +213,8 @@ class EnhancedChatbot:
     def create_contextual_response(self, user_message, tool_name, tool_result):
         """Create a natural, contextual response that connects the tool output with the user's message"""
         
-        # Remove error markers for cleaner responses
-        clean_result = tool_result.replace("❌", "").replace("**", "").strip()
+        # Check if this is a follow-up question
+        is_follow_up = self.memory.is_follow_up_question(user_message)
         
         contextual_responses = {
             'weather': [
@@ -153,11 +254,20 @@ class EnhancedChatbot:
             ]
         }
         
-        # Default response if no specific template exists
+        # Add follow-up context if needed
+        if is_follow_up and self.memory.conversation_history:
+            last_topic = self.memory.current_context.get('topics', [])
+            if last_topic:
+                follow_up_prefix = f"Following up on our discussion about {last_topic[0]}, "
+                import random
+                if tool_name in contextual_responses:
+                    base_response = random.choice(contextual_responses[tool_name])
+                    return follow_up_prefix + base_response.lower()
+        
+        # Default response
         if tool_name in contextual_responses:
             import random
-            response_templates = contextual_responses[tool_name]
-            return random.choice(response_templates)
+            return random.choice(contextual_responses[tool_name])
         else:
             return tool_result
 
@@ -220,7 +330,6 @@ class EnhancedChatbot:
             elif 'latest' in message.lower():
                 query = message.lower().split('latest')[-1].strip()
             else:
-                # More intelligent query extraction
                 query = re.sub(r'(what is|what are|tell me about|show me|find|search|news|information about)\s+', '', message.lower()).strip()
                 query = re.sub(r'[?\.,!]', '', query).strip()
             
@@ -280,14 +389,63 @@ class EnhancedChatbot:
             print(f"⚠️ Image optimization failed: {e}")
             return image_data
 
-    def send_message_with_image(self, message, image_data=None):
-        """Main message processing with contextual responses"""
+    def generate_conversational_response(self, user_message):
+        """Generate a response that maintains conversation context"""
+        model = self.get_text_model()
+        if not model:
+            return "I'm here to help! What would you like to know?"
+        
+        # Build context-aware prompt
+        conversation_context = self.memory.get_conversation_context()
+        
+        prompt = f"""
+        Conversation History:
+        {conversation_context}
+        
+        Current User Message: {user_message}
+        
+        You are a helpful AI assistant. The user is engaging in a conversation with you.
+        Please provide a natural, contextual response that:
+        1. Acknowledges the conversation history if relevant
+        2. Answers the current question directly
+        3. Shows understanding of the topic continuity
+        4. Is friendly and engaging
+        
+        If this seems like a follow-up question, connect it to the previous discussion.
+        You have access to real-time tools for weather, news, calculations, etc.
+        
+        Response:
+        """
+        
+        payload = {
+            "model": model,
+            "prompt": prompt,
+            "stream": False,
+            "options": {
+                "num_predict": 600,
+                "temperature": 0.7,
+                "top_k": 50,
+            }
+        }
+        
         try:
+            response = requests.post(self.ollama_url, json=payload, timeout=45)
+            if response.status_code == 200:
+                return response.json().get('response', "I understand. What would you like to know more about?")
+            else:
+                return "I'm here to help! What would you like to discuss?"
+        except:
+            return "I understand. How can I assist you further?"
+
+    def send_message_with_image(self, message, image_data=None):
+        """Main message processing with conversation memory"""
+        try:
+            final_response = ""
+            
             # Case 1: Image processing
             if image_data:
                 print("🖼️ Processing image...")
                 
-                # Analyze visual content if multimodal model is available
                 multimodal_model = self.get_multimodal_model()
                 
                 if multimodal_model:
@@ -298,117 +456,77 @@ class EnhancedChatbot:
                     else:
                         analysis_prompt = "What is this image? Describe what you see in detail."
                     
-                    print(f"🔍 Analyzing image content with {multimodal_model}...")
                     analysis_result = self.analyze_image_content(optimized_image, analysis_prompt)
                     
-                    # Create contextual response for images
                     if message and message.strip():
-                        return f"Regarding your question '{message}', here's what I see in the image:\n\n{analysis_result}"
+                        final_response = f"Regarding your question '{message}', here's what I see in the image:\n\n{analysis_result}"
                     else:
-                        return f"Here's what I see in this image:\n\n{analysis_result}"
+                        final_response = f"Here's what I see in this image:\n\n{analysis_result}"
                 else:
-                    return "I'd love to analyze this image for you, but I need a visual analysis model. Please install LLaVA with: `ollama pull llava:7b`"
+                    final_response = "I'd love to analyze this image, but I need a visual analysis model."
 
             # Case 2: Tool detection and usage
-            if message and message.strip():
+            elif message and message.strip():
                 tool_name = self.detect_tool_usage(message)
                 if tool_name:
                     print(f"🔧 Using MCP tool: {tool_name}")
                     parameters = self.extract_tool_parameters(tool_name, message)
                     tool_result = self.mcp_client.call_tool(tool_name, parameters)
                     
-                    # Create contextual response instead of raw tool output
-                    contextual_response = self.create_contextual_response(message, tool_name, tool_result)
-                    return contextual_response
+                    # Create contextual response
+                    final_response = self.create_contextual_response(message, tool_name, tool_result)
+                else:
+                    # Generate conversational response for non-tool queries
+                    final_response = self.generate_conversational_response(message)
 
-            # Case 3: Regular text conversation
-            if not message or not message.strip():
-                return "Hello! I'm your AI assistant. You can ask me about weather, news, calculations, time, unit conversions, or upload images for analysis. How can I help you today?"
-                
-            model = self.get_text_model()
-            if not model:
-                return "I'm currently unable to process general conversations. Please make sure Ollama is running and you have language models installed."
-
-            # Enhanced prompt for contextual conversations
-            conversation_prompt = f"""
-            User: {message}
-            
-            You are a helpful AI assistant that has access to real-time tools for:
-            - Weather information for any location
-            - Latest news and breaking news
-            - Web searches for current information
-            - Mathematical calculations
-            - Current time in different timezones
-            - Unit conversions
-            - Image analysis (when images are uploaded)
-            
-            If the user is asking for something that could use these tools, gently suggest they try:
-            "You can ask me about current weather in any city"
-            "I can show you the latest news about any topic"
-            "I can help with calculations and conversions"
-            "Feel free to upload images for analysis"
-            
-            Otherwise, provide a helpful, friendly response.
-            """
-            
-            payload = {
-                "model": model,
-                "prompt": conversation_prompt,
-                "stream": False,
-                "options": {
-                    "num_predict": 500, 
-                    "temperature": 0.7,
-                }
-            }
-            
-            print(f"📝 Using {model} for conversation...")
-            resp = requests.post(self.ollama_url, json=payload, timeout=45)
-            
-            if resp.status_code == 200:
-                return resp.json().get('response', "I'm here to help! What would you like to know?")
+            # Case 3: No message
             else:
-                return "I'm having trouble connecting to my conversation model right now. You can still use my tools for weather, news, calculations, and more!"
+                if self.memory.conversation_history:
+                    final_response = "What would you like to know more about?"
+                else:
+                    final_response = "Hello! I'm your AI assistant. You can ask me about weather, news, calculations, or upload images. How can I help you?"
+
+            # Store in memory
+            self.memory.add_interaction(message or "[Image Upload]", final_response)
+            
+            return final_response
                 
         except requests.exceptions.ConnectionError:
-            return "I can't connect to my AI models right now, but you can still use my tools for weather, news, calculations, and other real-time information!"
-        except requests.exceptions.Timeout:
-            return "This is taking longer than expected. You might want to try a simpler query or use one of my quick tools like weather or news search."
+            error_msg = "I'm having connection issues, but you can still try asking your question."
+            self.memory.add_interaction(message, error_msg)
+            return error_msg
         except Exception as e:
-            return f"I encountered an unexpected issue: {str(e)}\n\nBut don't worry! You can still ask me about weather, news, calculations, and more."
+            error_msg = f"I encountered an issue: {str(e)}. Let's try again."
+            self.memory.add_interaction(message, error_msg)
+            return error_msg
 
-# Test the contextual responses
-def test_contextual_responses():
-    """Test the contextual response system"""
+# Test conversation flow
+def test_conversation_flow():
+    """Test the conversation memory system"""
     chatbot = EnhancedChatbot()
     
-    test_messages = [
-        "what is current weather in kolkata",
-        "latest news about technology",
-        "calculate 15 * 25 + 8",
-        "current time in london",
-        "convert 10 kilometers to miles",
-        "breaking news"
+    conversation_flow = [
+        "What is artificial intelligence?",
+        "Where is it used in real world?",
+        "How does machine learning relate to AI?",
+        "What are some practical applications?",
+        "Tell me about healthcare applications"
     ]
     
-    print("🧪 Testing Contextual Responses...")
+    print("🧪 Testing Conversation Flow...")
     print("=" * 60)
     
-    for message in test_messages:
-        print(f"\n💬 User: {message}")
-        tool_name = chatbot.detect_tool_usage(message)
-        if tool_name:
-            print(f"🔧 Detected tool: {tool_name}")
-            parameters = chatbot.extract_tool_parameters(tool_name, message)
-            print(f"📋 Parameters: {parameters}")
-            
-            # Simulate tool result for testing
-            simulated_result = f"Simulated result for {tool_name} with {parameters}"
-            contextual_response = chatbot.create_contextual_response(message, tool_name, simulated_result)
-            print(f"🤖 Response: {contextual_response}")
-        else:
-            print("❌ No tool detected")
-        
+    for i, message in enumerate(conversation_flow, 1):
+        print(f"\n💬 Turn {i}: {message}")
+        print("---")
+        response = chatbot.send_message_with_image(message)
+        print(f"🤖 {response}")
         print("-" * 50)
+        
+        # Show memory state
+        print(f"🧠 Memory: {len(chatbot.memory.conversation_history)} interactions")
+        print(f"📚 Topics: {chatbot.memory.current_context.get('topics', [])}")
+        print(f"🔗 Follow-up: {chatbot.memory.is_follow_up_question(message)}")
 
 if __name__ == "__main__":
-    test_contextual_responses()
+    test_conversation_flow()
