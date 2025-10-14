@@ -1,19 +1,68 @@
+# live_news.py
 import requests
 import feedparser
 import urllib.parse
 from datetime import datetime, timedelta
+import re
 
-# NewsAPI Configuration
-NEWSAPI_KEY = "0de38909cc3f4083b9071d135412fd12"
+# NewsAPI Configuration - Use this free key
+NEWSAPI_KEY = "32c62167ae464dc9964185a257a2a0e2"  # Free demo key
 
-def fetch_newsapi_articles(query: str, page_size: int = 8) -> str:
+def fetch_newsapi_country_news(country: str) -> str:
     """
-    Fetch live news using NewsAPI - Most reliable source
+    Fetch country-specific news using NewsAPI with proper query filtering
     """
     try:
-        # Calculate dates for recent news (last 7 days for better results)
+        # Country-specific search terms
+        country_queries = {
+            'india': [
+                "India", "Indian", "Delhi", "Mumbai", "Chennai", "Kolkata", 
+                "Bangalore", "Modi", "BJP", "Congress", "Indian government",
+                "Indian economy", "Indian politics", "Bollywood", "Indian cricket"
+            ],
+            'usa': [
+                "United States", "USA", "US", "Washington", "Biden", "Trump",
+                "White House", "Congress", "Senate", "American", "US politics",
+                "US economy", "New York", "California", "Texas", "Florida"
+            ],
+            'uk': [
+                "United Kingdom", "UK", "Britain", "London", "British",
+                "Prime Minister", "Parliament", "Brexit", "England", "Scotland",
+                "Wales", "Northern Ireland", "UK politics", "UK economy"
+            ],
+            'canada': [
+                "Canada", "Canadian", "Ottawa", "Toronto", "Vancouver",
+                "Trudeau", "Canadian government", "Canadian politics"
+            ],
+            'australia': [
+                "Australia", "Australian", "Sydney", "Melbourne", "Canberra",
+                "Australian government", "Australian politics"
+            ],
+            'germany': [
+                "Germany", "German", "Berlin", "Merkel", "German politics",
+                "German economy", "European Union"
+            ],
+            'france': [
+                "France", "French", "Paris", "Macron", "French politics",
+                "French economy"
+            ],
+            'japan': [
+                "Japan", "Japanese", "Tokyo", "Japanese government",
+                "Japanese economy", "Japanese politics"
+            ]
+        }
+        
+        country_lower = country.lower()
+        if country_lower in country_queries:
+            search_terms = country_queries[country_lower]
+            # Use OR operator to search for multiple terms
+            query = " OR ".join(search_terms[:5])  # Use first 5 terms
+        else:
+            query = country
+        
+        # Calculate date range (last 3 days for fresh news)
         to_date = datetime.now()
-        from_date = to_date - timedelta(days=7)
+        from_date = to_date - timedelta(days=3)
         
         api_url = "https://newsapi.org/v2/everything"
         params = {
@@ -21,12 +70,12 @@ def fetch_newsapi_articles(query: str, page_size: int = 8) -> str:
             'from': from_date.strftime('%Y-%m-%d'),
             'to': to_date.strftime('%Y-%m-%d'),
             'language': 'en',
-            'sortBy': 'publishedAt',  # Changed to publishedAt for latest news
-            'pageSize': page_size,
+            'sortBy': 'publishedAt',
+            'pageSize': 15,  # Get more articles to filter
             'apiKey': NEWSAPI_KEY
         }
         
-        print(f"🔍 NewsAPI searching for: {query}")
+        print(f"🔍 Searching {country.upper()} news with query: {query}")
         response = requests.get(api_url, params=params, timeout=15)
         
         if response.status_code == 200:
@@ -34,38 +83,52 @@ def fetch_newsapi_articles(query: str, page_size: int = 8) -> str:
             articles = data.get('articles', [])
             total_results = data.get('totalResults', 0)
             
+            print(f"📊 Found {total_results} total results for {country}")
+            
             if articles:
                 news_items = []
-                for i, article in enumerate(articles, 1):
+                for i, article in enumerate(articles[:10], 1):
                     title = article.get('title', '').strip()
                     description = article.get('description', '').strip()
                     source = article.get('source', {}).get('name', 'Unknown')
                     url = article.get('url', '#')
-                    published = article.get('publishedAt', '')[:10]  # Get just the date
+                    published = article.get('publishedAt', '')[:10]  # Get date
                     
-                    # Skip articles with no title
+                    # Skip articles with no title or removed content
                     if not title or title == '[Removed]':
+                        continue
+                    
+                    # Filter to ensure it's actually about the country
+                    if not is_about_country(title, description, country_lower):
                         continue
                         
                     # Use description or create a placeholder
                     if not description or description == '[Removed]':
-                        description = "No description available"
+                        description = "Latest news update"
+                    else:
+                        # Shorten description if too long
+                        if len(description) > 120:
+                            description = description[:120] + '...'
+                    
+                    # Get country flag emoji
+                    flag_emoji = get_country_flag(country_lower)
                     
                     news_items.append(
-                        f"**{i}. {title}**\n"
-                        f"   📝 {description}\n"
-                        f"   📰 {source} | 🕒 {published}\n"
-                        f"   🔗 [Read more]({url})"
+                        f"{flag_emoji} <strong>{title}</strong><br>"
+                        f"   📝 {description}<br>"
+                        f"   📰 {source} | 🕒 {published} | "
+                        f'<a href="{url}" style="color: #667eea; text-decoration: none; font-weight: 500;" target="_blank">🔗 Read Full Story</a>'
                     )
                 
                 if news_items:
-                    result = f"📰 **Latest News for '{query}'**\n\n"
-                    result += "\n\n".join(news_items)
+                    result = f"<strong>{flag_emoji} {country.upper()} NEWS - LATEST UPDATES</strong><br><br>"
+                    result += "<br><br>".join(news_items[:8])  # Show top 8
+                    result += f"<br><br>📊 <strong>{len(news_items)} relevant articles filtered from {total_results} total results</strong>"
                     return result
                 else:
-                    return f"❌ No valid articles found for '{query}'"
+                    return f"❌ No relevant {country} news found after filtering. Try 'breaking news' for general headlines."
             else:
-                return f"❌ No articles found for '{query}'"
+                return f"❌ No articles found for {country}. The API might be rate limited."
         else:
             error_msg = f"NewsAPI Error {response.status_code}"
             try:
@@ -77,22 +140,138 @@ def fetch_newsapi_articles(query: str, page_size: int = 8) -> str:
             return f"❌ {error_msg}"
             
     except Exception as e:
-        print(f"❌ NewsAPI Error: {e}")
-        return f"❌ News service temporarily unavailable: {str(e)}"
+        print(f"❌ NewsAPI Error for {country}: {e}")
+        return fetch_country_rss_fallback(country)
 
-def fetch_top_headlines() -> str:
+def is_about_country(title: str, description: str, country: str) -> bool:
     """
-    Fetch top headlines for general news
+    Filter function to ensure news is actually about the specified country
     """
+    text = (title + " " + (description or "")).lower()
+    
+    # Country-specific keywords
+    country_keywords = {
+        'india': ['india', 'indian', 'delhi', 'mumbai', 'chennai', 'kolkata', 
+                 'bangalore', 'modi', 'bjp', 'congress', 'indian', 'bollywood',
+                 'indian cricket', 'indian economy', 'indian government'],
+        'usa': ['united states', 'usa', 'us', 'washington', 'biden', 'trump',
+               'white house', 'congress', 'senate', 'american', 'us politics',
+               'new york', 'california', 'texas', 'florida'],
+        'uk': ['united kingdom', 'uk', 'britain', 'london', 'british',
+              'prime minister', 'parliament', 'brexit', 'england', 'scotland'],
+        'canada': ['canada', 'canadian', 'ottawa', 'toronto', 'vancouver', 'trudeau'],
+        'australia': ['australia', 'australian', 'sydney', 'melbourne', 'canberra'],
+        'germany': ['germany', 'german', 'berlin', 'merkel'],
+        'france': ['france', 'french', 'paris', 'macron'],
+        'japan': ['japan', 'japanese', 'tokyo']
+    }
+    
+    if country in country_keywords:
+        keywords = country_keywords[country]
+        return any(keyword in text for keyword in keywords)
+    
+    return country.lower() in text
+
+def get_country_flag(country: str) -> str:
+    """Get flag emoji for country"""
+    flag_emojis = {
+        'india': '🇮🇳',
+        'usa': '🇺🇸', 'us': '🇺🇸',
+        'uk': '🇬🇧', 'united kingdom': '🇬🇧',
+        'canada': '🇨🇦',
+        'australia': '🇦🇺',
+        'germany': '🇩🇪',
+        'france': '🇫🇷',
+        'japan': '🇯🇵',
+        'china': '🇨🇳',
+        'russia': '🇷🇺',
+        'brazil': '🇧🇷'
+    }
+    return flag_emojis.get(country.lower(), '📰')
+
+def fetch_country_rss_fallback(country: str) -> str:
+    """
+    Fallback using RSS feeds when NewsAPI fails
+    """
+    try:
+        # Country-specific RSS feeds as fallback
+        country_feeds = {
+            'india': [
+                "https://timesofindia.indiatimes.com/rssfeedmostrecent.cms",
+                "https://feeds.feedburner.com/ndtvnews-top-stories"
+            ],
+            'usa': [
+                "https://feeds.npr.org/1001/rss.xml",
+                "https://rss.cnn.com/rss/edition.rss"
+            ],
+            'uk': [
+                "http://feeds.bbci.co.uk/news/rss.xml",
+                "https://feeds.skynews.com/feeds/rss/home.xml"
+            ]
+        }
+        
+        country_lower = country.lower()
+        if country_lower not in country_feeds:
+            return f"❌ No news sources available for {country}"
+        
+        all_news_items = []
+        flag_emoji = get_country_flag(country)
+        
+        for rss_url in country_feeds[country_lower]:
+            try:
+                print(f"📡 Fallback RSS for {country}: {rss_url[:50]}...")
+                feed = feedparser.parse(rss_url)
+                
+                if feed.entries:
+                    for entry in feed.entries[:8]:
+                        title = getattr(entry, 'title', '').strip()
+                        title = re.sub(r'\s*-\s*[^-]+$', '', title)
+                        
+                        published = getattr(entry, 'published', '')
+                        if published:
+                            try:
+                                pub_date = datetime.strptime(published, '%a, %d %b %Y %H:%M:%S %Z')
+                                published = pub_date.strftime('%b %d, %H:%M')
+                            except:
+                                published = published[:16]
+                        
+                        link = getattr(entry, 'link', '#')
+                        
+                        if title and len(title) > 15:
+                            # Basic country filtering for RSS
+                            if is_about_country(title, "", country_lower):
+                                news_item = (
+                                    f"{flag_emoji} <strong>{title}</strong><br>"
+                                    f"   🕒 {published} | "
+                                    f'<a href="{link}" style="color: #667eea; text-decoration: none; font-weight: 500;" target="_blank">🔗 Read Full Story</a>'
+                                )
+                                if news_item not in all_news_items:
+                                    all_news_items.append(news_item)
+            except Exception as e:
+                print(f"❌ RSS Error for {country}: {e}")
+                continue
+        
+        if all_news_items:
+            result = f"<strong>{flag_emoji} {country.upper()} NEWS (RSS Fallback)</strong><br><br>"
+            result += "<br><br>".join(all_news_items[:6])
+            return result
+        else:
+            return f"❌ No {country} news available via RSS fallback."
+        
+    except Exception as e:
+        return f"❌ Fallback also failed for {country}: {str(e)}"
+
+def fetch_breaking_news() -> str:
+    """Get global breaking news"""
     try:
         api_url = "https://newsapi.org/v2/top-headlines"
         params = {
-            'country': 'us',
+            'country': 'us',  # Use US as base for global headlines
             'pageSize': 10,
             'apiKey': NEWSAPI_KEY
         }
         
-        print("📰 Fetching top headlines...")
+        print("🚨 Fetching breaking news...")
         response = requests.get(api_url, params=params, timeout=15)
         
         if response.status_code == 200:
@@ -101,7 +280,7 @@ def fetch_top_headlines() -> str:
             
             if articles:
                 news_items = []
-                for i, article in enumerate(articles, 1):
+                for i, article in enumerate(articles[:8], 1):
                     title = article.get('title', '').strip()
                     description = article.get('description', '').strip()
                     source = article.get('source', {}).get('name', 'Unknown')
@@ -111,136 +290,98 @@ def fetch_top_headlines() -> str:
                         continue
                         
                     if not description or description == '[Removed]':
-                        description = "No description available"
+                        description = "Breaking news update"
+                    else:
+                        if len(description) > 100:
+                            description = description[:100] + '...'
                     
                     news_items.append(
-                        f"**{i}. {title}**\n"
-                        f"   📝 {description}\n"
-                        f"   📰 {source}\n"
-                        f"   🔗 [Read more]({url})"
+                        f"🚨 <strong>{title}</strong><br>"
+                        f"   📝 {description}<br>"
+                        f"   📰 {source} | "
+                        f'<a href="{url}" style="color: #667eea; text-decoration: none; font-weight: 500;" target="_blank">🔗 Read More</a>'
                     )
                 
                 if news_items:
-                    return "📰 **Top Headlines Today**\n\n" + "\n\n".join(news_items)
+                    result = "🚨 <strong>BREAKING NEWS - GLOBAL</strong><br><br>"
+                    result += "<br><br>".join(news_items)
+                    return result
             
-            return "❌ No headlines available at the moment"
+            return "❌ No breaking news available at the moment."
         else:
-            return f"❌ Headlines service error: {response.status_code}"
+            return "❌ Breaking news service temporarily unavailable."
             
     except Exception as e:
-        print(f"❌ Headlines Error: {e}")
-        return f"❌ Headlines service unavailable: {str(e)}"
-
-def fetch_google_news_rss(query: str) -> str:
-    """
-    Fetch news from Google News RSS feed (Fallback)
-    """
-    try:
-        encoded_query = urllib.parse.quote(query)
-        rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=en-US&gl=US&ceid=US:en"
-        
-        print(f"📡 Google RSS searching for: {query}")
-        feed = feedparser.parse(rss_url)
-        
-        if not feed.entries:
-            return ""
-
-        news_items = []
-        for i, entry in enumerate(feed.entries[:5], 1):
-            title = getattr(entry, 'title', 'No title').strip()
-            summary = getattr(entry, 'summary', 'No description').strip()
-            link = getattr(entry, 'link', '#')
-            published = getattr(entry, 'published', 'Unknown date')
-            
-            if title and title != 'No title':
-                # Clean up summary
-                if len(summary) > 150:
-                    summary = summary[:150] + '...'
-                
-                news_items.append(
-                    f"**{i}. {title}**\n"
-                    f"   📝 {summary}\n"
-                    f"   🕒 {published}\n"
-                    f"   🔗 [Read more]({link})"
-                )
-        
-        if news_items:
-            return f"📡 **Additional News Sources**\n\n" + "\n\n".join(news_items)
-        return ""
-        
-    except Exception as e:
-        print(f"❌ Google RSS Error: {e}")
-        return ""
+        return "❌ Breaking news service error."
 
 def fetch_live_news(query: str) -> str:
     """
-    Main function to fetch live news from all sources
+    Main function with enhanced country detection
     """
     try:
-        # If query is about general/today's news, use top headlines
-        if query.lower() in ['today', 'latest', 'current', 'news', 'headlines', 'breaking', 'latest news', 'today news']:
-            return fetch_top_headlines()
+        query_lower = query.lower().strip()
         
-        all_results = []
+        # Country detection map
+        country_map = {
+            'india': ['india', 'indian'],
+            'usa': ['usa', 'us', 'united states', 'america'],
+            'uk': ['uk', 'united kingdom', 'britain'],
+            'canada': ['canada', 'canadian'],
+            'australia': ['australia'],
+            'germany': ['germany'],
+            'france': ['france'],
+            'japan': ['japan']
+        }
         
-        # 1. NewsAPI (Primary - most reliable)
-        newsapi_results = fetch_newsapi_articles(query)
-        if newsapi_results and "❌" not in newsapi_results:
-            all_results.append(newsapi_results)
+        # Detect country from query
+        detected_country = None
+        for country, keywords in country_map.items():
+            if any(keyword in query_lower for keyword in keywords):
+                detected_country = country
+                break
         
-        # 2. Google News RSS (Secondary)
-        google_results = fetch_google_news_rss(query)
-        if google_results:
-            all_results.append(google_results)
+        # Handle special cases
+        if any(word in query_lower for word in ['breaking', 'headlines']):
+            return fetch_breaking_news()
         
-        if all_results:
-            final_result = "\n\n".join(all_results)
-            return final_result
-        else:
-            return f"❌ **No news found for '{query}'**\n\nTry:\n• Using different keywords\n• Checking your spelling\n• Using more general terms"
-            
+        if detected_country:
+            return fetch_newsapi_country_news(detected_country)
+        
+        # Default to India news if query contains "news" but no specific country
+        if 'news' in query_lower:
+            return fetch_newsapi_country_news('india')
+        
+        # Generic search
+        return fetch_newsapi_country_news(query)
+        
     except Exception as e:
-        return f"❌ **Search error**: {str(e)}"
+        return f"❌ News service error: {str(e)}"
 
 def fetch_recent_event_info(query: str) -> str:
-    """
-    Alias for fetch_live_news for backward compatibility
-    """
+    """Alias for fetch_live_news"""
     return fetch_live_news(query)
 
-def fetch_breaking_news() -> str:
-    """Get breaking news headlines"""
-    return fetch_top_headlines()
-
-def fetch_technology_news() -> str:
-    """Get technology news"""
-    return fetch_live_news("technology")
-
-def fetch_sports_news() -> str:
-    """Get sports news"""
-    return fetch_live_news("sports")
-
-def fetch_business_news() -> str:
-    """Get business news"""
-    return fetch_live_news("business")
-
 # Test function
-def test_news_search():
-    """Test the news search functionality"""
+def test_news():
+    """Test the news functionality"""
+    print("🧪 TESTING COUNTRY-SPECIFIC NEWS\n")
+    
     test_queries = [
-        "today",
-        "technology",
-        "sports",
-        "politics"
+        "india",
+        "usa", 
+        "uk",
+        "breaking news"
     ]
     
     for query in test_queries:
-        print(f"\n{'='*60}")
-        print(f"Testing: {query}")
-        print(f"{'='*60}")
+        print(f"\n{'='*70}")
+        print(f"Testing: '{query}'")
+        print(f"{'='*70}")
         result = fetch_live_news(query)
-        print(result)
-        print(f"{'='*60}")
+        # Print without HTML tags for console view
+        clean_result = re.sub(r'<[^>]+>', '', result)
+        print(clean_result)
+        print(f"{'='*70}")
 
 if __name__ == "__main__":
-    test_news_search()
+    test_news()

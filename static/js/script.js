@@ -1,366 +1,373 @@
-class OllamaChatbot {
-    constructor() {
-        this.currentSessionId = 'default';
-        this.isConnected = false;
-        this.eventSource = null;
-        this.init();
-    }
+// Global variables
+let currentConversationId = null;
+let currentFile = null;
 
-    init() {
-        this.checkStatus();
-        this.setupEventListeners();
-        this.loadSessions();
-        this.setupSSE();
-    }
+// Initialize when document is ready
+$(document).ready(function() {
+    initializeChat();
+    setupEventListeners();
+    checkSystemStatus();
+});
 
-    setupEventListeners() {
-        // Send message
-        document.getElementById('send-btn').addEventListener('click', () => this.sendMessage());
-        document.getElementById('message-input').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                this.sendMessage();
+function initializeChat() {
+    // Start a new conversation
+    startNewConversation();
+    
+    // Show welcome screen
+    $('#welcome-screen').show();
+    $('#chat-container').hide();
+}
+
+function setupEventListeners() {
+    // Send message on button click
+    $('#send-btn').on('click', sendMessage);
+    
+    // Send message on Enter key (but allow Shift+Enter for new line)
+    $('#message-input').on('keydown', function(e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+    
+    // Enable/disable send button based on input
+    $('#message-input').on('input', function() {
+        const hasText = $(this).val().trim().length > 0;
+        const hasFile = currentFile !== null;
+        $('#send-btn').prop('disabled', !(hasText || hasFile));
+    });
+    
+    // File upload handling
+    $('#file-upload-btn').on('click', function() {
+        $('#file-input').click();
+    });
+    
+    $('#file-input').on('change', function(e) {
+        handleFileSelect(e.target.files[0]);
+    });
+    
+    // Remove file
+    $('#remove-file-btn').on('click', function() {
+        clearFileSelection();
+    });
+    
+    // New chat button
+    $('#new-chat-btn').on('click', startNewConversation);
+    
+    // System status button
+    $('#system-status-btn').on('click', showSystemStatus);
+    
+    // Quick action cards
+    $('.quick-action-card').on('click', function() {
+        const action = $(this).data('action');
+        handleQuickAction(action);
+    });
+    
+    // Modal close buttons
+    $('.modal-close').on('click', function() {
+        $(this).closest('.modal').hide();
+    });
+    
+    // Close modal when clicking outside
+    $(window).on('click', function(e) {
+        $('.modal').each(function() {
+            if (e.target === this) {
+                $(this).hide();
             }
         });
+    });
+    
+    // Auto-resize textarea
+    $('#message-input').on('input', function() {
+        this.style.height = 'auto';
+        this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+}
 
-        // New session
-        document.getElementById('new-session-btn').addEventListener('click', () => this.showNewSessionModal());
-        document.getElementById('create-session-btn').addEventListener('click', () => this.createNewSession());
-        document.getElementById('cancel-session-btn').addEventListener('click', () => this.hideNewSessionModal());
-
-        // Session management
-        document.getElementById('clear-chat-btn').addEventListener('click', () => this.clearChat());
-        document.getElementById('delete-session-btn').addEventListener('click', () => this.deleteSession());
-    }
-
-    async checkStatus() {
-        try {
-            const response = await fetch('/api/status');
-            const data = await response.json();
-            
-            this.updateStatus(data.ollama_available && data.model_available);
-            
-            if (!data.ollama_available) {
-                this.showError('Ollama is not available. Please make sure Ollama is installed and running.');
-            } else if (!data.model_available) {
-                this.showError(`Model ${data.model_name} is not available. Please pull it with: ollama pull ${data.model_name}`);
-            }
-        } catch (error) {
-            this.updateStatus(false);
-            this.showError('Cannot connect to server');
-        }
-    }
-
-    updateStatus(connected) {
-        this.isConnected = connected;
-        const indicator = document.getElementById('status-indicator');
-        const text = document.getElementById('status-text');
-        
-        if (connected) {
-            indicator.style.color = '#48bb78';
-            text.textContent = 'Connected to Ollama';
-            text.style.color = '#48bb78';
-        } else {
-            indicator.style.color = '#f56565';
-            text.textContent = 'Disconnected';
-            text.style.color = '#f56565';
-        }
-    }
-
-    setupSSE() {
-        this.eventSource = new EventSource('/api/stream');
-        
-        this.eventSource.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            
-            switch (data.type) {
-                case 'chunk':
-                    this.appendChunk(data.content, data.session_id);
-                    break;
-                case 'complete':
-                    this.completeResponse(data);
-                    break;
-                case 'error':
-                    this.showError(data.content);
-                    break;
-                case 'ping':
-                    // Keep connection alive
-                    break;
-            }
-        };
-
-        this.eventSource.onerror = (error) => {
-            console.error('SSE error:', error);
-            this.showError('Connection lost. Reconnecting...');
-            setTimeout(() => this.setupSSE(), 5000);
-        };
-    }
-
-    async sendMessage() {
-        if (!this.isConnected) {
-            this.showError('Not connected to Ollama');
-            return;
-        }
-
-        const input = document.getElementById('message-input');
-        const message = input.value.trim();
-
-        if (!message) return;
-
-        // Clear input
-        input.value = '';
-
-        // Add user message to chat
-        this.addMessage('user', message, this.currentSessionId);
-
-        // Show typing indicator
-        this.showTypingIndicator();
-
-        try {
-            const response = await fetch('/api/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    message: message,
-                    session_id: this.currentSessionId
-                })
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to send message');
-            }
-        } catch (error) {
-            this.hideTypingIndicator();
-            this.showError('Failed to send message: ' + error.message);
-        }
-    }
-
-    addMessage(role, content, sessionId) {
-        if (sessionId !== this.currentSessionId) return;
-
-        const messagesContainer = document.getElementById('chat-messages');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = `message ${role}`;
-        
-        const contentDiv = document.createElement('div');
-        contentDiv.className = 'message-content';
-        contentDiv.textContent = content;
-
-        const timeDiv = document.createElement('div');
-        timeDiv.className = 'message-time';
-        timeDiv.textContent = new Date().toLocaleTimeString();
-
-        messageDiv.appendChild(contentDiv);
-        messageDiv.appendChild(timeDiv);
-        messagesContainer.appendChild(messageDiv);
-
-        // Scroll to bottom
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
-    appendChunk(content, sessionId) {
-        if (sessionId !== this.currentSessionId) return;
-
-        this.hideTypingIndicator();
-        
-        const messagesContainer = document.getElementById('chat-messages');
-        let lastMessage = messagesContainer.lastChild;
-
-        // If last message is not from assistant, create new one
-        if (!lastMessage || !lastMessage.classList.contains('assistant')) {
-            this.addMessage('assistant', content, sessionId);
-            return;
-        }
-
-        // Append to existing assistant message
-        const contentDiv = lastMessage.querySelector('.message-content');
-        contentDiv.textContent += content;
-
-        // Update timestamp
-        const timeDiv = lastMessage.querySelector('.message-time');
-        timeDiv.textContent = new Date().toLocaleTimeString();
-
-        // Scroll to bottom
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
-    completeResponse(data) {
-        this.hideTypingIndicator();
-        document.getElementById('response-time').textContent = `Response time: ${data.response_time.toFixed(2)}s`;
-        
-        // Reload sessions to update message counts
-        this.loadSessions();
-    }
-
-    showTypingIndicator() {
-        const messagesContainer = document.getElementById('chat-messages');
-        const typingDiv = document.createElement('div');
-        typingDiv.id = 'typing-indicator';
-        typingDiv.className = 'message assistant typing-indicator';
-        typingDiv.textContent = 'AI is thinking...';
-        messagesContainer.appendChild(typingDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
-
-    hideTypingIndicator() {
-        const typingIndicator = document.getElementById('typing-indicator');
-        if (typingIndicator) {
-            typingIndicator.remove();
-        }
-    }
-
-    async loadSessions() {
-        try {
-            const response = await fetch('/api/sessions');
-            const data = await response.json();
-            
-            this.renderSessions(data.sessions);
-        } catch (error) {
-            console.error('Error loading sessions:', error);
-        }
-    }
-
-    renderSessions(sessions) {
-        const sessionsList = document.getElementById('sessions-list');
-        sessionsList.innerHTML = '';
-
-        sessions.forEach(session => {
-            const sessionDiv = document.createElement('div');
-            sessionDiv.className = `session-item ${session.session_id === this.currentSessionId ? 'active' : ''}`;
-            sessionDiv.innerHTML = `
-                <div class="session-name">${session.name}</div>
-                <div class="session-meta">
-                    ${session.message_count} messages<br>
-                    ${new Date(session.created_at).toLocaleDateString()}
-                </div>
-            `;
-
-            sessionDiv.addEventListener('click', () => this.switchSession(session.session_id, session.name));
-            sessionsList.appendChild(sessionDiv);
+function startNewConversation() {
+    $.post('/new_chat')
+        .done(function(data) {
+            currentConversationId = data.conversation_id;
+            $('#chat-messages').empty();
+            $('#welcome-screen').show();
+            $('#chat-container').hide();
+            clearFileSelection();
+            $('#message-input').val('');
+            $('#send-btn').prop('disabled', true);
+        })
+        .fail(function() {
+            showError('Failed to start new conversation');
         });
+}
+
+function sendMessage() {
+    const message = $('#message-input').val().trim();
+    
+    if (!message && !currentFile) {
+        return;
     }
-
-    async switchSession(sessionId, sessionName) {
-        this.currentSessionId = sessionId;
-        document.getElementById('current-session-name').textContent = sessionName;
-        
-        // Reload sessions to update active state
-        this.loadSessions();
-        
-        // Load session history
-        await this.loadSessionHistory(sessionId);
+    
+    // Hide welcome screen on first message
+    if ($('#welcome-screen').is(':visible')) {
+        $('#welcome-screen').hide();
+        $('#chat-container').show();
     }
-
-    async loadSessionHistory(sessionId) {
-        try {
-            const response = await fetch(`/api/history/${sessionId}`);
-            const data = await response.json();
-            
-            this.renderChatHistory(data.history);
-        } catch (error) {
-            console.error('Error loading history:', error);
-        }
+    
+    // Add user message to chat
+    addMessage('user', message);
+    
+    // Clear input and reset height
+    $('#message-input').val('');
+    $('#message-input').height('auto');
+    $('#send-btn').prop('disabled', true);
+    
+    // Show loading
+    showLoading();
+    
+    // Prepare request data
+    const requestData = {
+        message: message,
+        conversation_id: currentConversationId
+    };
+    
+    // Add file data if present
+    if (currentFile) {
+        requestData.file_path = currentFile.path;
+        requestData.file_type = currentFile.type;
     }
-
-    renderChatHistory(history) {
-        const messagesContainer = document.getElementById('chat-messages');
-        messagesContainer.innerHTML = '';
-
-        history.forEach(exchange => {
-            this.addMessage('user', exchange.user, this.currentSessionId);
-            this.addMessage('assistant', exchange.assistant, this.currentSessionId);
-        });
-    }
-
-    showNewSessionModal() {
-        document.getElementById('new-session-modal').style.display = 'block';
-        document.getElementById('session-name-input').value = '';
-        document.getElementById('session-name-input').focus();
-    }
-
-    hideNewSessionModal() {
-        document.getElementById('new-session-modal').style.display = 'none';
-    }
-
-    async createNewSession() {
-        const nameInput = document.getElementById('session-name-input');
-        const sessionName = nameInput.value.trim() || `Session_${Date.now()}`;
-
-        try {
-            const response = await fetch('/api/session/new', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ name: sessionName })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-                this.hideNewSessionModal();
-                this.switchSession(data.session_id, data.name);
-                this.loadSessions();
+    
+    // Send request
+    $.ajax({
+        url: '/chat',
+        method: 'POST',
+        contentType: 'application/json',
+        data: JSON.stringify(requestData),
+        success: function(data) {
+            hideLoading();
+            if (data.response) {
+                addMessage('assistant', data.response);
+                currentConversationId = data.conversation_id;
             } else {
-                throw new Error('Failed to create session');
+                showError('No response received');
             }
-        } catch (error) {
-            this.showError('Failed to create session: ' + error.message);
+            clearFileSelection();
+        },
+        error: function(xhr, status, error) {
+            hideLoading();
+            showError('Failed to send message: ' + (xhr.responseJSON?.error || error));
         }
+    });
+}
+
+function handleFileSelect(file) {
+    if (!file) return;
+    
+    // Check file type
+    const fileExtension = file.name.split('.').pop().toLowerCase();
+    const allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'ppt', 'pptx'];
+    
+    if (!allowedExtensions.includes(fileExtension)) {
+        showError('File type not allowed. Please select a PDF, image, or PowerPoint file.');
+        return;
     }
-
-    async clearChat() {
-        if (!confirm('Are you sure you want to clear the chat history?')) return;
-
-        try {
-            const response = await fetch(`/api/history/${this.currentSessionId}/clear`, {
-                method: 'POST'
-            });
-
-            if (response.ok) {
-                this.renderChatHistory([]);
+    
+    // Check file size (16MB limit)
+    if (file.size > 16 * 1024 * 1024) {
+        showError('File too large. Please select a file smaller than 16MB.');
+        return;
+    }
+    
+    // Upload file
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    showLoading('Uploading file...');
+    
+    $.ajax({
+        url: '/upload_file',
+        method: 'POST',
+        data: formData,
+        processData: false,
+        contentType: false,
+        success: function(data) {
+            hideLoading();
+            if (data.status === 'success') {
+                currentFile = {
+                    name: data.filename,
+                    path: data.file_path,
+                    type: data.file_type,
+                    size: data.file_size
+                };
+                showFilePreview();
+                $('#send-btn').prop('disabled', false);
             } else {
-                throw new Error('Failed to clear chat');
+                showError(data.error || 'File upload failed');
             }
-        } catch (error) {
-            this.showError('Failed to clear chat: ' + error.message);
+        },
+        error: function(xhr, status, error) {
+            hideLoading();
+            showError('File upload failed: ' + (xhr.responseJSON?.error || error));
         }
+    });
+}
+
+function handleQuickAction(action) {
+    let message = '';
+    
+    switch(action) {
+        case 'weather':
+            message = 'What is the current weather in London?';
+            break;
+        case 'news':
+            message = 'What are the latest news headlines?';
+            break;
+        case 'email':
+            message = 'Send a test email to test@example.com with subject "Test" and content "This is a test email from the chatbot"';
+            break;
+        case 'pdf':
+            message = 'Can you read and summarize a PDF document for me?';
+            break;
+        case 'image':
+            message = 'What can you see in this image?';
+            break;
+        case 'calculator':
+            message = 'Calculate 25 * 40 + 15';
+            break;
     }
-
-    async deleteSession() {
-        if (this.currentSessionId === 'default') {
-            alert('Cannot delete the default session');
-            return;
-        }
-
-        if (!confirm('Are you sure you want to delete this session? This action cannot be undone.')) return;
-
-        try {
-            const response = await fetch(`/api/session/${this.currentSessionId}`, {
-                method: 'DELETE'
-            });
-
-            if (response.ok) {
-                // Switch to default session
-                this.switchSession('default', 'Default Session');
-                this.loadSessions();
-            } else {
-                throw new Error('Failed to delete session');
-            }
-        } catch (error) {
-            this.showError('Failed to delete session: ' + error.message);
-        }
-    }
-
-    showError(message) {
-        // Simple error display - you might want to use a more sophisticated notification system
-        console.error('Error:', message);
-        alert('Error: ' + message);
+    
+    if (message) {
+        $('#message-input').val(message);
+        $('#send-btn').prop('disabled', false);
+        // Optionally auto-send for quick actions
+        // sendMessage();
     }
 }
 
-// Initialize the chatbot when the page loads
-document.addEventListener('DOMContentLoaded', () => {
-    new OllamaChatbot();
+function showFilePreview() {
+    if (currentFile) {
+        $('#file-preview-name').text(currentFile.name);
+        $('#file-preview').show();
+    }
+}
+
+function clearFileSelection() {
+    currentFile = null;
+    $('#file-input').val('');
+    $('#file-preview').hide();
+    $('#send-btn').prop('disabled', $('#message-input').val().trim().length === 0);
+}
+
+function addMessage(role, content) {
+    const avatar = role === 'user' ? 
+        '<i class="fas fa-user"></i>' : 
+        '<i class="fas fa-robot"></i>';
+    
+    const messageClass = role === 'user' ? 'message-user' : 'message-assistant';
+    
+    // Format content with line breaks
+    const formattedContent = content.replace(/\n/g, '<br>');
+    
+    const messageHtml = `
+        <div class="message ${messageClass}">
+            <div class="message-avatar">
+                ${avatar}
+            </div>
+            <div class="message-content">
+                ${formattedContent}
+            </div>
+        </div>
+    `;
+    
+    $('#chat-messages').append(messageHtml);
+    
+    // Scroll to bottom
+    $('#chat-container').scrollTop($('#chat-container')[0].scrollHeight);
+}
+
+function showLoading(text = 'AI is thinking...') {
+    $('.loading-text').text(text);
+    $('#loading').show();
+}
+
+function hideLoading() {
+    $('#loading').hide();
+}
+
+function showError(message) {
+    const errorHtml = `
+        <div class="message message-assistant">
+            <div class="message-avatar">
+                <i class="fas fa-robot"></i>
+            </div>
+            <div class="message-content" style="color: #ef4444;">
+                <i class="fas fa-exclamation-triangle"></i> ${message}
+            </div>
+        </div>
+    `;
+    
+    $('#chat-messages').append(errorHtml);
+    $('#chat-container').scrollTop($('#chat-container')[0].scrollHeight);
+}
+
+function checkSystemStatus() {
+    $.get('/system_status')
+        .done(function(data) {
+            updateSystemStatus(data.components);
+        })
+        .fail(function() {
+            // Silently fail for status check
+        });
+}
+
+function updateSystemStatus(components) {
+    // You can use this to update any status indicators if needed
+    console.log('System status:', components);
+}
+
+function showSystemStatus() {
+    $.get('/system_status')
+        .done(function(data) {
+            let statusHtml = '';
+            
+            for (const [component, status] of Object.entries(data.components)) {
+                let statusClass = 'status-success';
+                if (status.includes('❌')) statusClass = 'status-error';
+                else if (status.includes('⚠️')) statusClass = 'status-warning';
+                
+                statusHtml += `
+                    <div class="status-item">
+                        <span class="status-name">${component.replace('_', ' ').toUpperCase()}</span>
+                        <span class="status-value ${statusClass}">${status}</span>
+                    </div>
+                `;
+            }
+            
+            $('#status-content').html(statusHtml);
+            $('#system-status-modal').show();
+        })
+        .fail(function() {
+            $('#status-content').html('<p style="color: #ef4444; text-align: center;">Failed to load system status</p>');
+            $('#system-status-modal').show();
+        });
+}
+
+// Drag and drop support
+$(document).on('dragenter', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+});
+
+$(document).on('dragover', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+});
+
+$(document).on('drop', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    const files = e.originalEvent.dataTransfer.files;
+    if (files.length > 0) {
+        handleFileSelect(files[0]);
+    }
 });

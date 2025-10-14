@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Chatbot</title>
+    <title>AI Assistant</title>
     <style>
         * {
             margin: 0;
@@ -21,34 +21,56 @@
         }
 
         .container {
-            max-width: 100%;
-            margin: 0 auto;
+            width: 100%;
+            height: 100vh;
+            margin: 0;
             padding: 0;
-            flex: 1;
             display: flex;
             flex-direction: column;
-            height: 100vh;
         }
 
         .header {
-            text-align: center;
-            padding: 20px;
+            padding: 15px 20px;
             border-bottom: 1px solid #333;
             background: #0a0a0a;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .new-chat-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .new-chat-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
         .header h1 {
-            font-size: 2.5rem;
+            font-size: 1.8rem;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
-            margin-bottom: 10px;
-        }
-
-        .header p {
-            color: #888;
-            font-size: 1.1rem;
         }
 
         .chat-area {
@@ -57,24 +79,34 @@
             flex-direction: column;
             background: #111;
             overflow: hidden;
+            width: 100%;
         }
 
         .messages {
             flex: 1;
-            padding: 30px;
+            padding: 20px;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 15px;
+            width: 100%;
+        }
+
+        .empty-state {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+            margin: auto;
+            font-size: 1.1rem;
         }
 
         .message {
             max-width: 80%;
-            padding: 20px 25px;
-            border-radius: 20px;
+            padding: 15px 20px;
+            border-radius: 18px;
             line-height: 1.6;
             animation: fadeIn 0.3s ease;
-            font-size: 1.1rem;
+            font-size: 1rem;
         }
 
         @keyframes fadeIn {
@@ -97,74 +129,204 @@
             border-bottom-left-radius: 5px;
         }
 
-        .assistant-message pre {
-            background: #000;
-            padding: 20px;
-            border-radius: 12px;
-            overflow-x: auto;
-            margin: 15px 0;
-            border: 1px solid #333;
-            font-size: 0.95rem;
+        /* News Link Styles */
+        .assistant-message a {
+            color: #667eea !important;
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.3s ease;
         }
 
-        .assistant-message code {
-            background: #000;
-            padding: 3px 8px;
-            border-radius: 6px;
-            font-family: 'Courier New', monospace;
+        .assistant-message a:hover {
+            color: #764ba2 !important;
+            text-decoration: underline;
+        }
+
+        /* Code Block Styles */
+        .code-block {
+            background: #1a1a1a;
             border: 1px solid #333;
-            font-size: 0.9rem;
+            border-radius: 8px;
+            margin: 10px 0;
+            overflow: hidden;
+        }
+
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #2d2d2d;
+            border-bottom: 1px solid #333;
+        }
+
+        .code-language {
+            color: #888;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+
+        .copy-btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.75rem;
+            transition: all 0.3s ease;
+        }
+
+        .copy-btn:hover {
+            background: #764ba2;
+            transform: scale(1.05);
+        }
+
+        .copy-btn.copied {
+            background: #28a745;
+        }
+
+        .copy-btn.error {
+            background: #dc3545;
+        }
+
+        .code-block pre {
+            margin: 0;
+            padding: 15px;
+            overflow-x: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            line-height: 1.4;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .code-block code {
+            background: none;
+            border: none;
+            padding: 0;
+            color: #e0e0e0;
+            display: block;
+        }
+
+        .inline-code {
+            background: #2d2d2d;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            color: #e0e0e0;
+            border: 1px solid #444;
         }
 
         .input-area {
-            padding: 25px 30px;
+            padding: 20px;
             border-top: 1px solid #333;
             background: #0a0a0a;
+            width: 100%;
         }
 
         .input-container {
             display: flex;
-            gap: 15px;
+            gap: 12px;
             align-items: flex-end;
-            max-width: 1200px;
-            margin: 0 auto;
+            width: 100%;
+            max-width: none;
+            margin: 0;
+            position: relative;
         }
 
-        .upload-btn {
+        .upload-toggle {
             background: #1a1a1a;
             border: 1px solid #333;
             color: #667eea;
-            padding: 15px;
+            padding: 12px;
             border-radius: 50%;
             cursor: pointer;
             transition: all 0.3s ease;
-            font-size: 1.8rem;
-            width: 60px;
-            height: 60px;
+            font-size: 1.1rem;
+            width: 50px;
+            height: 50px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-weight: 300;
+            position: relative;
+            flex-shrink: 0;
         }
 
-        .upload-btn:hover {
+        .upload-toggle:hover {
             background: #222;
             border-color: #667eea;
-            transform: scale(1.1);
+            transform: scale(1.05);
+        }
+
+        .upload-toggle.active {
+            background: #222;
+            border-color: #667eea;
+            color: #764ba2;
+        }
+
+        .upload-options {
+            position: absolute;
+            bottom: 65px;
+            left: 0;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 10px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+        }
+
+        .upload-options.show {
+            display: flex;
+        }
+
+        .upload-option {
+            background: #2d2d2d;
+            border: 1px solid #444;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.9rem;
+            min-width: 120px;
+        }
+
+        .upload-option:hover {
+            background: #333;
+            border-color: #667eea;
+        }
+
+        .upload-option.image-option {
+            color: #667eea;
+        }
+
+        .upload-option.pdf-option {
+            color: #ff6b6b;
         }
 
         .message-input {
             flex: 1;
             background: #1a1a1a;
             border: 1px solid #333;
-            border-radius: 30px;
-            padding: 20px 25px;
+            border-radius: 25px;
+            padding: 15px 20px;
             color: white;
-            font-size: 1.1rem;
+            font-size: 1rem;
             resize: none;
-            min-height: 60px;
-            max-height: 150px;
+            min-height: 50px;
+            max-height: 120px;
             font-family: inherit;
+            width: 100%;
         }
 
         .message-input:focus {
@@ -181,18 +343,19 @@
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             border: none;
             color: white;
-            padding: 18px 35px;
-            border-radius: 30px;
+            padding: 15px 25px;
+            border-radius: 25px;
             cursor: pointer;
-            font-size: 1.1rem;
+            font-size: 1rem;
             font-weight: 600;
             transition: all 0.3s ease;
-            min-width: 120px;
+            min-width: 100px;
+            flex-shrink: 0;
         }
 
         .send-btn:hover {
             transform: scale(1.05);
-            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
         }
 
         .send-btn:disabled {
@@ -202,34 +365,79 @@
             box-shadow: none;
         }
 
-        .image-preview {
+        .file-previews {
             margin-top: 15px;
-            text-align: center;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            width: 100%;
         }
 
-        .image-preview img {
-            max-width: 300px;
-            max-height: 200px;
-            border-radius: 12px;
-            border: 2px solid #667eea;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        .file-preview {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: 280px;
+            animation: slideIn 0.3s ease;
         }
 
-        .remove-image {
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .file-preview img {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            object-fit: cover;
+        }
+
+        .file-info {
+            flex: 1;
+        }
+
+        .file-name {
+            color: white;
+            font-size: 0.85rem;
+            margin-bottom: 4px;
+        }
+
+        .file-size {
+            color: #888;
+            font-size: 0.75rem;
+        }
+
+        .remove-file {
             background: #ff4757;
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 20px;
+            padding: 4px 8px;
+            border-radius: 15px;
             cursor: pointer;
-            margin-top: 10px;
-            font-size: 0.9rem;
+            font-size: 0.75rem;
             transition: all 0.3s ease;
         }
 
-        .remove-image:hover {
+        .remove-file:hover {
             background: #ff3742;
             transform: scale(1.05);
+        }
+
+        .file-icon {
+            font-size: 1.5rem;
+        }
+
+        .pdf-icon {
+            color: #ff6b6b;
+        }
+
+        .image-icon {
+            color: #667eea;
         }
 
         .typing-indicator {
@@ -237,11 +445,11 @@
             align-self: flex-start;
             background: #1a1a1a;
             border: 1px solid #333;
-            padding: 20px 25px;
-            border-radius: 20px;
+            padding: 15px 20px;
+            border-radius: 18px;
             border-bottom-left-radius: 5px;
             color: #888;
-            font-size: 1.1rem;
+            font-size: 1rem;
         }
 
         .typing-dots {
@@ -268,7 +476,7 @@
 
         /* Scrollbar styling */
         .messages::-webkit-scrollbar {
-            width: 8px;
+            width: 6px;
         }
 
         .messages::-webkit-scrollbar-track {
@@ -277,105 +485,11 @@
 
         .messages::-webkit-scrollbar-thumb {
             background: #667eea;
-            border-radius: 4px;
+            border-radius: 3px;
         }
 
         .messages::-webkit-scrollbar-thumb:hover {
             background: #764ba2;
-        }
-
-        .conversation-starter {
-            text-align: center;
-            color: #666;
-            font-style: italic;
-            margin: 40px 0;
-            font-size: 1.2rem;
-        }
-
-        .welcome-message {
-            text-align: center;
-            color: #888;
-            margin-bottom: 30px;
-            font-size: 1.1rem;
-            line-height: 1.6;
-        }
-
-        .capabilities {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-            margin: 30px 0;
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-
-        .capability-item {
-            background: #1a1a1a;
-            padding: 20px;
-            border-radius: 12px;
-            border: 1px solid #333;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .capability-item:hover {
-            border-color: #667eea;
-            transform: translateY(-2px);
-        }
-
-        .capability-icon {
-            font-size: 2rem;
-            margin-bottom: 10px;
-            display: block;
-        }
-
-        .capability-text {
-            color: #ccc;
-            font-size: 0.95rem;
-        }
-
-        /* Responsive design */
-        @media (max-width: 768px) {
-            .messages {
-                padding: 20px;
-            }
-            
-            .message {
-                max-width: 90%;
-                padding: 15px 20px;
-                font-size: 1rem;
-            }
-            
-            .header h1 {
-                font-size: 2rem;
-            }
-            
-            .input-area {
-                padding: 20px;
-            }
-            
-            .input-container {
-                gap: 10px;
-            }
-            
-            .upload-btn {
-                width: 50px;
-                height: 50px;
-                font-size: 1.5rem;
-                padding: 12px;
-            }
-            
-            .message-input {
-                padding: 15px 20px;
-                font-size: 1rem;
-            }
-            
-            .send-btn {
-                padding: 15px 25px;
-                font-size: 1rem;
-                min-width: 100px;
-            }
         }
 
         .hidden {
@@ -384,58 +498,196 @@
 
         /* Message timestamp */
         .message-time {
-            font-size: 0.8rem;
+            font-size: 0.75rem;
             color: #666;
-            margin-top: 5px;
+            margin-top: 4px;
             text-align: right;
         }
 
         .user-message .message-time {
             color: rgba(255, 255, 255, 0.7);
         }
+
+        /* Email dialog styles */
+        .email-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .email-dialog-content {
+            background: #1a1a1a;
+            padding: 25px;
+            border-radius: 12px;
+            border: 1px solid #333;
+            max-width: 450px;
+            width: 90%;
+        }
+
+        .email-dialog h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .email-dialog p {
+            color: #888;
+            margin-bottom: 15px;
+            font-size: 0.95rem;
+        }
+
+        .email-dialog input {
+            width: 100%;
+            padding: 10px;
+            background: #0a0a0a;
+            border: 1px solid #333;
+            border-radius: 6px;
+            color: white;
+            font-size: 0.9rem;
+            margin-bottom: 12px;
+        }
+
+        .email-dialog small {
+            color: #666;
+            font-size: 0.8rem;
+            display: block;
+            margin-bottom: 20px;
+        }
+
+        .email-dialog-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .email-dialog-button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .email-dialog-button.cancel {
+            background: #333;
+            color: white;
+        }
+
+        .email-dialog-button.send {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        /* Upload overlay */
+        .upload-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 99;
+        }
+
+        .upload-overlay.active {
+            display: block;
+        }
+
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .messages {
+                padding: 15px;
+            }
+            
+            .message {
+                max-width: 90%;
+                padding: 12px 16px;
+                font-size: 0.95rem;
+            }
+            
+            .header h1 {
+                font-size: 1.5rem;
+            }
+            
+            .input-area {
+                padding: 15px;
+            }
+            
+            .input-container {
+                gap: 10px;
+            }
+            
+            .upload-toggle {
+                width: 45px;
+                height: 45px;
+                font-size: 1rem;
+                padding: 10px;
+            }
+            
+            .message-input {
+                padding: 12px 16px;
+                font-size: 0.95rem;
+            }
+            
+            .send-btn {
+                padding: 12px 20px;
+                font-size: 0.95rem;
+                min-width: 80px;
+            }
+
+            .code-block pre {
+                padding: 12px;
+                font-size: 0.8rem;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h1>AI Assistant</h1>
-            <p>Your intelligent companion for weather, news, calculations, and image analysis</p>
+            <div class="header-left">
+                <button class="new-chat-btn" onclick="newChat()">
+                    <span>+</span> New Chat
+                </button>
+                <h1>AI Assistant</h1>
+            </div>
         </div>
 
         <div class="chat-area">
             <div class="messages" id="messages">
-                <div class="conversation-starter">
+                <div class="empty-state" id="emptyState">
                     Start a conversation with your AI assistant
-                </div>
-                <div class="welcome-message">
-                    I can help you with:
-                </div>
-                <div class="capabilities">
-                    <div class="capability-item">
-                        <span class="capability-icon">🌤️</span>
-                        <div class="capability-text">Real-time weather information for any location</div>
-                    </div>
-                    <div class="capability-item">
-                        <span class="capability-icon">📰</span>
-                        <div class="capability-text">Latest news and breaking news headlines</div>
-                    </div>
-                    <div class="capability-item">
-                        <span class="capability-icon">🔢</span>
-                        <div class="capability-text">Mathematical calculations and unit conversions</div>
-                    </div>
-                    <div class="capability-item">
-                        <span class="capability-icon">🖼️</span>
-                        <div class="capability-text">Image analysis and description</div>
-                    </div>
                 </div>
             </div>
 
             <div class="input-area">
                 <div class="input-container">
-                    <label class="upload-btn" for="imageUpload">
+                    <!-- Upload Toggle Button -->
+                    <div class="upload-toggle" id="uploadToggle" onclick="toggleUploadOptions()">
                         +
-                        <input type="file" id="imageUpload" accept="image/*" style="display: none;" onchange="handleImageUpload(event)">
-                    </label>
+                    </div>
+                    
+                    <!-- Upload Options -->
+                    <div class="upload-options" id="uploadOptions">
+                        <label class="upload-option image-option">
+                            🖼️ Upload Image
+                            <input type="file" accept="image/*" style="display: none;" onchange="handleFileUpload(event, 'image')">
+                        </label>
+                        <label class="upload-option pdf-option">
+                            📄 Upload PDF
+                            <input type="file" accept=".pdf" style="display: none;" onchange="handleFileUpload(event, 'pdf')">
+                        </label>
+                    </div>
+                    
                     <textarea 
                         class="message-input" 
                         id="messageInput" 
@@ -446,13 +698,17 @@
                         Send
                     </button>
                 </div>
-                <div class="image-preview" id="imagePreview"></div>
+                <div class="file-previews" id="filePreviews"></div>
             </div>
         </div>
     </div>
 
+    <!-- Upload Overlay -->
+    <div class="upload-overlay" id="uploadOverlay" onclick="closeUploadOptions()"></div>
+
     <script>
         let currentImage = null;
+        let currentPDF = null;
         let conversationId = '';
 
         // Initialize conversation
@@ -466,34 +722,146 @@
             }
         }
 
-        // Handle image upload
-        function handleImageUpload(event) {
+        // New chat function
+        async function newChat() {
+            // Clear current conversation
+            const messagesDiv = document.getElementById('messages');
+            messagesDiv.innerHTML = '<div class="empty-state" id="emptyState">Start a conversation with your AI assistant</div>';
+            
+            // Clear files
+            currentImage = null;
+            currentPDF = null;
+            clearFilePreviews();
+            
+            // Initialize new conversation
+            await initConversation();
+        }
+
+        // Toggle upload options
+        function toggleUploadOptions() {
+            const uploadOptions = document.getElementById('uploadOptions');
+            const uploadToggle = document.getElementById('uploadToggle');
+            const uploadOverlay = document.getElementById('uploadOverlay');
+            
+            uploadOptions.classList.toggle('show');
+            uploadToggle.classList.toggle('active');
+            uploadOverlay.classList.toggle('active');
+        }
+
+        // Close upload options
+        function closeUploadOptions() {
+            const uploadOptions = document.getElementById('uploadOptions');
+            const uploadToggle = document.getElementById('uploadToggle');
+            const uploadOverlay = document.getElementById('uploadOverlay');
+            
+            uploadOptions.classList.remove('show');
+            uploadToggle.classList.remove('active');
+            uploadOverlay.classList.remove('active');
+        }
+
+        // Handle file upload (both images and PDFs)
+        function handleFileUpload(event, fileType) {
             const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
+            if (!file) return;
+
+            // Validate file type
+            if (fileType === 'image' && !file.type.startsWith('image/')) {
+                alert('Please select a valid image file.');
+                event.target.value = '';
+                return;
+            }
+
+            if (fileType === 'pdf' && file.type !== 'application/pdf') {
+                alert('Please select a valid PDF file.');
+                event.target.value = '';
+                return;
+            }
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                if (fileType === 'image') {
                     currentImage = e.target.result;
-                    showImagePreview(currentImage);
-                    // Clear the file input
-                    event.target.value = '';
-                };
+                    currentPDF = null; // Clear PDF if image is selected
+                } else if (fileType === 'pdf') {
+                    currentPDF = e.target.result;
+                    currentImage = null; // Clear image if PDF is selected
+                }
+                
+                showFilePreview(file, fileType);
+                closeUploadOptions();
+                // Clear the file input
+                event.target.value = '';
+            };
+
+            if (fileType === 'image') {
+                reader.readAsDataURL(file);
+            } else if (fileType === 'pdf') {
                 reader.readAsDataURL(file);
             }
         }
 
-        // Show image preview
-        function showImagePreview(imageData) {
-            const preview = document.getElementById('imagePreview');
-            preview.innerHTML = `
-                <img src="${imageData}" alt="Uploaded image">
-                <button class="remove-image" onclick="removeImage()">Remove Image</button>
-            `;
+        // Show file preview
+        function showFilePreview(file, fileType) {
+            const previewsDiv = document.getElementById('filePreviews');
+            const fileId = Date.now(); // Unique ID for each file
+            
+            let previewHTML = '';
+            
+            if (fileType === 'image') {
+                previewHTML = `
+                    <div class="file-preview" id="file-${fileId}">
+                        <span class="file-icon image-icon">🖼️</span>
+                        <div class="file-info">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${formatFileSize(file.size)}</div>
+                        </div>
+                        <button class="remove-file" onclick="removeFile('${fileId}', 'image')">Remove</button>
+                    </div>
+                `;
+            } else if (fileType === 'pdf') {
+                previewHTML = `
+                    <div class="file-preview" id="file-${fileId}">
+                        <span class="file-icon pdf-icon">📄</span>
+                        <div class="file-info">
+                            <div class="file-name">${file.name}</div>
+                            <div class="file-size">${formatFileSize(file.size)}</div>
+                        </div>
+                        <button class="remove-file" onclick="removeFile('${fileId}', 'pdf')">Remove</button>
+                    </div>
+                `;
+            }
+            
+            previewsDiv.innerHTML = previewHTML; // Replace any existing preview
         }
 
-        // Remove uploaded image
-        function removeImage() {
-            currentImage = null;
-            document.getElementById('imagePreview').innerHTML = '';
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Remove uploaded file
+        function removeFile(fileId, fileType) {
+            const previewElement = document.getElementById(`file-${fileId}`);
+            if (previewElement) {
+                previewElement.remove();
+            }
+            
+            if (fileType === 'image') {
+                currentImage = null;
+            } else if (fileType === 'pdf') {
+                currentPDF = null;
+            }
+            
+            // Clear file previews if no files left
+            const previewsDiv = document.getElementById('filePreviews');
+            if (previewsDiv.children.length === 0) {
+                previewsDiv.innerHTML = '';
+            }
         }
 
         // Handle Enter key press
@@ -510,7 +878,7 @@
             const message = messageInput.value.trim();
             const sendBtn = document.getElementById('sendBtn');
 
-            if (!message && !currentImage) return;
+            if (!message && !currentImage && !currentPDF) return;
 
             // Disable send button
             sendBtn.disabled = true;
@@ -519,11 +887,9 @@
             // Add user message to chat
             addMessage(message, 'user');
             
-            // Clear input and remove image preview immediately
+            // Clear input and remove file previews immediately
             messageInput.value = '';
-            if (currentImage) {
-                document.getElementById('imagePreview').innerHTML = '';
-            }
+            clearFilePreviews();
 
             // Show typing indicator
             showTypingIndicator();
@@ -532,6 +898,7 @@
                 const payload = {
                     message: message,
                     image: currentImage,
+                    pdf: currentPDF,
                     conversation_id: conversationId
                 };
 
@@ -553,10 +920,19 @@
                 } else {
                     addMessage(data.response, 'assistant');
                     conversationId = data.conversation_id;
+                    
+                    // Check if this is an email response that requires credentials
+                    if (data.response && data.response.includes('SMTP credentials') && data.response.includes('preview')) {
+                        // Show email credentials dialog after a short delay
+                        setTimeout(() => {
+                            showEmailCredentialsDialog(message, conversationId);
+                        }, 1000);
+                    }
                 }
 
-                // Clear current image after sending
+                // Clear current files after sending
                 currentImage = null;
+                currentPDF = null;
 
             } catch (error) {
                 hideTypingIndicator();
@@ -570,26 +946,34 @@
             }
         }
 
+        // Clear file previews
+        function clearFilePreviews() {
+            document.getElementById('filePreviews').innerHTML = '';
+        }
+
         // Add message to chat
         function addMessage(content, sender) {
             const messagesDiv = document.getElementById('messages');
-            const starter = messagesDiv.querySelector('.conversation-starter');
-            const welcome = messagesDiv.querySelector('.welcome-message');
-            const capabilities = messagesDiv.querySelector('.capabilities');
+            const emptyState = document.getElementById('emptyState');
             
-            if (starter) starter.remove();
-            if (welcome) welcome.remove();
-            if (capabilities) capabilities.remove();
+            if (emptyState) {
+                emptyState.remove();
+            }
 
             const messageDiv = document.createElement('div');
             messageDiv.className = `message ${sender}-message`;
             
             if (sender === 'user') {
-                if (content) {
-                    messageDiv.textContent = content;
-                } else if (currentImage) {
-                    messageDiv.textContent = '[Image Uploaded]';
+                let displayContent = content;
+                if (!content && currentImage) {
+                    displayContent = '[Image Uploaded]';
+                } else if (!content && currentPDF) {
+                    displayContent = '[PDF Uploaded]';
+                } else if (content && (currentImage || currentPDF)) {
+                    displayContent = content + ' ' + (currentImage ? '[Image]' : '[PDF]');
                 }
+                
+                messageDiv.textContent = displayContent;
                 
                 // Add timestamp
                 const timeDiv = document.createElement('div');
@@ -597,7 +981,7 @@
                 timeDiv.textContent = getCurrentTime();
                 messageDiv.appendChild(timeDiv);
             } else {
-                // Format assistant response
+                // Format assistant response with code blocks and copy buttons
                 messageDiv.innerHTML = formatResponse(content);
                 
                 // Add timestamp
@@ -620,21 +1004,141 @@
             });
         }
 
-        // Format assistant response
+        // Format assistant response with proper code blocks
         function formatResponse(text) {
-            // Convert line breaks to <br>
-            let formatted = text.replace(/\n/g, '<br>');
+            // First, process code blocks before converting line breaks
+            let formatted = text;
             
-            // Format code blocks (between ```)
-            formatted = formatted.replace(/```([^`]+)```/g, '<pre>$1</pre>');
+            // Format code blocks (between ```) - process this FIRST
+            formatted = formatted.replace(/```(\w+)?\s*([\s\S]*?)```/g, function(match, lang, code) {
+                const language = lang || 'text';
+                const cleanCode = cleanCodeContent(code);
+                return createCodeBlock(language, cleanCode);
+            });
             
-            // Format inline code (between `)
-            formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+            // Handle malformed code blocks that might have <br> tags
+            formatted = fixMalformedCodeBlocks(formatted);
+            
+            // Now convert remaining line breaks to <br>
+            formatted = formatted.replace(/\n/g, '<br>');
+            
+            // Format inline code (between `) - after code blocks
+            formatted = formatted.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
             
             // Format bold text (between **)
             formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
             
             return formatted;
+        }
+
+        function cleanCodeContent(code) {
+            // Remove <br> tags and fix line breaks in code content
+            return code.replace(/<br\s*\/?>/gi, '\n')
+                      .replace(/&lt;/g, '<')
+                      .replace(/&gt;/g, '>')
+                      .replace(/&amp;/g, '&')
+                      .replace(/&quot;/g, '"')
+                      .replace(/&#039;/g, "'")
+                      .trim();
+        }
+
+        function createCodeBlock(language, code) {
+            return `
+            <div class="code-block">
+                <div class="code-header">
+                    <span class="code-language">${language}</span>
+                    <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+                </div>
+                <pre><code class="language-${language}">${escapeHtml(code)}</code></pre>
+            </div>
+            `;
+        }
+
+        function fixMalformedCodeBlocks(text) {
+            // Look for code that might be missing proper formatting but contains code patterns
+            const lines = text.split('\n');
+            let inCodeBlock = false;
+            let currentLanguage = 'text';
+            let codeContent = [];
+            let result = [];
+            
+            for (let line of lines) {
+                // Check if this line starts a code block
+                const codeStartMatch = line.match(/```(\w+)?/);
+                if (codeStartMatch) {
+                    if (!inCodeBlock) {
+                        // Start of code block
+                        inCodeBlock = true;
+                        currentLanguage = codeStartMatch[1] || 'text';
+                        codeContent = [];
+                        // Remove the ``` from the line
+                        line = line.replace(/```(\w+)?/, '').trim();
+                    } else {
+                        // End of code block
+                        inCodeBlock = false;
+                        if (codeContent.length > 0) {
+                            result.push(createCodeBlock(currentLanguage, codeContent.join('\n')));
+                        }
+                        continue;
+                    }
+                }
+                
+                if (inCodeBlock) {
+                    // Inside code block - clean the line
+                    const cleanLine = line.replace(/<br\s*\/?>/gi, '\n')
+                                         .replace(/&lt;/g, '<')
+                                         .replace(/&gt;/g, '>')
+                                         .replace(/&amp;/g, '&');
+                    codeContent.push(cleanLine);
+                } else {
+                    // Outside code block
+                    result.push(line);
+                }
+            }
+            
+            // Handle unclosed code block at the end
+            if (inCodeBlock && codeContent.length > 0) {
+                result.push(createCodeBlock(currentLanguage, codeContent.join('\n')));
+            }
+            
+            return result.join('\n');
+        }
+
+        // Escape HTML to prevent XSS
+        function escapeHtml(unsafe) {
+            return unsafe
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Copy code to clipboard
+        function copyCode(button) {
+            const codeBlock = button.closest('.code-block');
+            const codeElement = codeBlock.querySelector('code');
+            const codeText = codeElement.textContent;
+            
+            navigator.clipboard.writeText(codeText).then(function() {
+                // Show success feedback
+                button.textContent = 'Copied!';
+                button.classList.add('copied');
+                
+                setTimeout(function() {
+                    button.textContent = 'Copy';
+                    button.classList.remove('copied');
+                }, 2000);
+            }).catch(function(err) {
+                console.error('Failed to copy code: ', err);
+                button.textContent = 'Failed!';
+                button.classList.add('error');
+                
+                setTimeout(function() {
+                    button.textContent = 'Copy';
+                    button.classList.remove('error');
+                }, 2000);
+            });
         }
 
         // Show typing indicator
@@ -654,6 +1158,120 @@
             if (typingIndicator) {
                 typingIndicator.remove();
             }
+        }
+
+        // Email functionality
+        async function sendEmail(conversationId, userMessage, smtpUsername, smtpPassword) {
+            try {
+                const response = await fetch('/send_email', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        conversation_id: conversationId,
+                        user_message: userMessage,
+                        smtp_username: smtpUsername,
+                        smtp_password: smtpPassword
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Add success message to chat
+                    addMessage(data.message, 'assistant');
+                } else {
+                    addMessage('❌ Failed to send email: ' + data.error, 'assistant');
+                }
+            } catch (error) {
+                console.error('Email sending error:', error);
+                addMessage('❌ Error sending email. Please try again.', 'assistant');
+            }
+        }
+
+        // Auto-send email function
+        async function sendEmailAuto(conversationId, userMessage) {
+            try {
+                const response = await fetch('/send_email_auto', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        conversation_id: conversationId,
+                        user_message: userMessage
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Add success message to chat
+                    addMessage(data.message, 'assistant');
+                } else {
+                    // If auto-send fails, show credential dialog
+                    showEmailCredentialsDialog(userMessage, conversationId);
+                }
+            } catch (error) {
+                console.error('Auto email sending error:', error);
+                // Fallback to credential dialog
+                showEmailCredentialsDialog(userMessage, conversationId);
+            }
+        }
+
+        // Show email credential dialog
+        function showEmailCredentialsDialog(userMessage, conversationId) {
+            const dialog = document.createElement('div');
+            dialog.className = 'email-dialog';
+            dialog.id = 'emailDialog';
+            
+            dialog.innerHTML = `
+                <div class="email-dialog-content">
+                    <h3>📧 Send Email</h3>
+                    <p>To send this email, please provide your SMTP credentials:</p>
+                    
+                    <div>
+                        <label style="color: #ccc; display: block; margin-bottom: 5px;">Email/Username:</label>
+                        <input type="text" id="smtpUsername" placeholder="your.email@gmail.com">
+                    </div>
+                    
+                    <div>
+                        <label style="color: #ccc; display: block; margin-bottom: 5px;">App Password:</label>
+                        <input type="password" id="smtpPassword" placeholder="Your app password">
+                        <small>
+                            For Gmail, use an App Password instead of your regular password
+                        </small>
+                    </div>
+                    
+                    <div class="email-dialog-buttons">
+                        <button class="email-dialog-button cancel" onclick="closeEmailDialog()">Cancel</button>
+                        <button class="email-dialog-button send" onclick="submitEmailCredentials('${conversationId}', '${userMessage.replace(/'/g, "\\'")}')">Send Email</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(dialog);
+        }
+
+        function closeEmailDialog() {
+            const dialog = document.getElementById('emailDialog');
+            if (dialog) {
+                dialog.remove();
+            }
+        }
+
+        function submitEmailCredentials(conversationId, userMessage) {
+            const username = document.getElementById('smtpUsername').value;
+            const password = document.getElementById('smtpPassword').value;
+            
+            if (!username || !password) {
+                alert('Please enter both email and password');
+                return;
+            }
+            
+            closeEmailDialog();
+            sendEmail(conversationId, userMessage, username, password);
         }
 
         // Initialize when page loads
