@@ -3,6 +3,9 @@ from flask import Flask, render_template, request, jsonify
 import uuid
 import logging
 import os
+import base64
+import io
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Import our custom modules
@@ -11,30 +14,29 @@ from enhanced_chatbot import EnhancedChatbot
 # Load environment variables
 load_dotenv()
 
-# --------------------------
 # Setup Flask & Logging
-# --------------------------
 logging.basicConfig(level=logging.INFO)
 app = Flask(__name__)
-app.secret_key = 'dev-key-for-chatbot-session'
+app.secret_key = os.getenv('SECRET_KEY', 'dev-key-for-chatbot-session')
 
+# Store conversations
 conversations = {}
 
-# ============================================================
-#                   FLASK ROUTES
-# ============================================================
 @app.route("/")
 def home():
     return render_template("index.html")
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    """Main chat endpoint with enhanced image and PDF support"""
     try:
         data = request.json
         msg = data.get("message", "").strip()
         img = data.get("image", "")
         pdf = data.get("pdf", "")
         cid = data.get("conversation_id", "")
+        
+        logging.info(f"Chat request - Message: {msg[:100]}, Image: {'Yes' if img else 'No'}, PDF: {'Yes' if pdf else 'No'}")
         
         if not msg and not img and not pdf:
             return jsonify({"error": "Please provide a message or upload a file."}), 400
@@ -43,15 +45,29 @@ def chat():
             cid = str(uuid.uuid4())
             
         if cid not in conversations:
-            conversations[cid] = {"chatbot": EnhancedChatbot(), "history": []}
+            conversations[cid] = {
+                "chatbot": EnhancedChatbot(), 
+                "history": [],
+                "created_at": datetime.now().isoformat()
+            }
 
         bot = conversations[cid]["chatbot"]
+        
+        # Process the message with enhanced chatbot
         reply = bot.send_message_with_image_and_pdf(msg, img, pdf)
 
-        conversations[cid]["history"].append({
-            "user": msg or ("[PDF Upload]" if pdf else "[Image Uploaded]"), 
-            "assistant": reply
-        })
+        # Store in conversation history
+        conversation_entry = {
+            "user": msg or ("[PDF Upload]" if pdf else "[Image Upload]" if img else "[Empty]"),
+            "assistant": reply,
+            "timestamp": datetime.now().isoformat(),
+            "has_image": bool(img),
+            "has_pdf": bool(pdf)
+        }
+        
+        conversations[cid]["history"].append(conversation_entry)
+        
+        logging.info("Response generated successfully")
         
         return jsonify({
             "response": reply, 
@@ -72,29 +88,37 @@ def send_email():
         smtp_password = data.get("smtp_password", "")
         user_message = data.get("user_message", "")
         
+        logging.info(f"Sending email with custom credentials for conversation: {cid}")
+        
         if not cid or cid not in conversations:
             return jsonify({"error": "Invalid conversation ID."}), 400
             
         if not smtp_username or not smtp_password:
             return jsonify({"error": "SMTP credentials required."}), 400
             
+        if not user_message:
+            return jsonify({"error": "User message required."}), 400
+            
         bot = conversations[cid]["chatbot"]
         
-        # Extract email info from the original message
-        email_info = bot.email_agent.extract_email_info(user_message)
-        email_data = bot.email_agent.compose_email(email_info)
-        
         # Send the email
-        success, result = bot.email_agent.send_email(email_data, smtp_username, smtp_password)
+        success, result = bot.email_agent.send_email({
+            'recipient_email': smtp_username,  # Using username as recipient for demo
+            'subject': 'Email from AI Assistant',
+            'body': user_message
+        }, smtp_username, smtp_password)
         
         if success:
-            # Update conversation history
-            email_sent_message = f"✅ **Email Sent**\n\nTo: {email_data['recipient_email']}\nSubject: {email_data['subject']}\n\nMessage delivered successfully."
+            email_sent_message = f"EMAIL SENT SUCCESSFULLY!\n\nTo: {smtp_username}\n\nYour email has been delivered successfully."
             
             conversations[cid]["history"].append({
                 "user": user_message,
-                "assistant": email_sent_message
+                "assistant": email_sent_message,
+                "timestamp": datetime.now().isoformat(),
+                "is_email": True
             })
+            
+            logging.info(f"Email sent successfully to {smtp_username}")
             
             return jsonify({
                 "status": "success",
@@ -102,6 +126,7 @@ def send_email():
                 "conversation_id": cid
             })
         else:
+            logging.error(f"Email sending failed: {result}")
             return jsonify({
                 "status": "error",
                 "error": result
@@ -119,6 +144,8 @@ def send_email_auto():
         cid = data.get("conversation_id", "")
         user_message = data.get("user_message", "")
         
+        logging.info(f"Auto-sending email for conversation: {cid}")
+        
         if not cid or cid not in conversations:
             return jsonify({"error": "Invalid conversation ID."}), 400
             
@@ -127,14 +154,18 @@ def send_email_auto():
             
         bot = conversations[cid]["chatbot"]
         
-        # Use the auto-send method
-        result = bot.handle_email_auto_send(user_message)
+        # Use the enhanced auto-send method
+        result = bot.email_agent.send_email_auto(user_message)
 
         # Update conversation history
         conversations[cid]["history"].append({
             "user": user_message,
-            "assistant": result
+            "assistant": result,
+            "timestamp": datetime.now().isoformat(),
+            "is_email": True
         })
+        
+        logging.info(f"Auto-email result: {result[:100]}...")
         
         return jsonify({
             "status": "success",
@@ -149,47 +180,108 @@ def send_email_auto():
 @app.route("/new_chat", methods=["POST"])
 def new_chat():
     """Start a new conversation."""
-    conversation_id = str(uuid.uuid4())
-    conversations[conversation_id] = {"chatbot": EnhancedChatbot(), "history": []}
-    return jsonify({"conversation_id": conversation_id})
+    try:
+        conversation_id = str(uuid.uuid4())
+        conversations[conversation_id] = {
+            "chatbot": EnhancedChatbot(), 
+            "history": [],
+            "created_at": datetime.now().isoformat()
+        }
+        
+        logging.info(f"New conversation started: {conversation_id}")
+        
+        return jsonify({
+            "conversation_id": conversation_id,
+            "message": "New conversation started successfully"
+        })
+    except Exception as e:
+        logging.error(f"New chat error: {e}")
+        return jsonify({"error": "Failed to start new conversation"}), 500
 
-@app.route("/test_tools")
-def test_tools():
-    """Test all MCP tools"""
+@app.route("/conversation_history", methods=["POST"])
+def conversation_history():
+    """Get conversation history"""
+    try:
+        data = request.json
+        cid = data.get("conversation_id", "")
+        
+        if not cid or cid not in conversations:
+            return jsonify({"error": "Invalid conversation ID."}), 400
+            
+        history = conversations[cid]["history"]
+        
+        return jsonify({
+            "status": "success",
+            "history": history,
+            "conversation_id": cid,
+            "total_messages": len(history)
+        })
+            
+    except Exception as e:
+        logging.error(f"Get history error: {e}")
+        return jsonify({"error": f"Failed to get history: {str(e)}"}), 500
+
+@app.route("/clear_memory", methods=["POST"])
+def clear_memory():
+    """Clear conversation memory"""
+    try:
+        data = request.json
+        cid = data.get("conversation_id", "")
+        
+        if not cid or cid not in conversations:
+            return jsonify({"error": "Invalid conversation ID."}), 400
+            
+        bot = conversations[cid]["chatbot"]
+        result = bot.clear_memory()
+        
+        # Also clear local history
+        conversations[cid]["history"] = []
+        
+        logging.info(f"Memory cleared for conversation: {cid}")
+        
+        return jsonify({
+            "status": "success",
+            "message": result,
+            "conversation_id": cid
+        })
+            
+    except Exception as e:
+        logging.error(f"Clear memory error: {e}")
+        return jsonify({"error": f"Failed to clear memory: {str(e)}"}), 500
+
+@app.route("/system_status", methods=["GET"])
+def system_status():
+    """Comprehensive system status check"""
     try:
         test_bot = EnhancedChatbot()
         
-        tests = [
-            ("weather", "What's the weather in London?"),
-            ("news_search", "latest technology news"),
-            ("calculator", "Calculate 15 * 25 + 8"),
-            ("time", "Current time in Tokyo"),
-            ("email", "Send email to test@example.com")
-        ]
+        # Get detailed Ollama status
+        ollama_status = test_bot.diagnose_ollama_status()
         
-        results = {}
-        for tool_name, query in tests:
-            tool_name_detected = test_bot.detect_tool_usage(query)
-            if tool_name_detected == tool_name:
-                if tool_name == 'email':
-                    preview = test_bot.handle_email_request(query)
-                    results[tool_name] = f"✅ Email detected\n{preview[:150]}..."
-                else:
-                    results[tool_name] = f"✅ {tool_name} tool available"
-            else:
-                results[tool_name] = f"❌ Tool detection failed"
+        status_report = {
+            "ollama_connection": ollama_status.get('ollama_running', False),
+            "available_models": len(test_bot.available_models),
+            "multimodal_available": ollama_status.get('multimodal_available', False),
+            "vision_model": test_bot.get_multimodal_model(),
+            "text_model": test_bot.get_text_model(),
+            "image_analysis": test_bot.get_multimodal_model() is not None,
+            "ocr_available": test_bot.ocr_available,
+            "active_conversations": len(conversations),
+            "server_time": datetime.now().isoformat()
+        }
         
         return jsonify({
-            "status": "Tools test completed",
-            "results": results
+            "status": "System status report",
+            "components": status_report,
+            "ollama_details": ollama_status
         })
     except Exception as e:
         return jsonify({
-            "status": "Tools test failed",
+            "status": "Status check failed",
             "error": str(e)
         }), 500
 
-@app.route("/test_ollama")
+@app.route("/test_ollama", methods=["GET"])
 def test_ollama():
     """Test Ollama connection"""
     try:
@@ -199,7 +291,8 @@ def test_ollama():
             models = [m['name'] for m in res.json().get('models', [])]
             return jsonify({
                 "status": "Ollama running", 
-                "models": models
+                "models": models,
+                "total_models": len(models)
             })
         return jsonify({"status": "Ollama error"}), 500
     except Exception as e:
@@ -208,75 +301,41 @@ def test_ollama():
             "error": str(e)
         }), 500
 
-@app.route("/test_email")
-def test_email():
-    """Test email functionality"""
-    try:
-        test_bot = EnhancedChatbot()
-        
-        test_messages = [
-            "send email to test@example.com about meeting",
-            "write a mail to friend@gmail.com invite for birthday"
-        ]
-        
-        results = {}
-        for i, message in enumerate(test_messages):
-            tool_detected = test_bot.detect_tool_usage(message)
-            preview = test_bot.handle_email_request(message)
-            results[f"test_{i+1}"] = f"Tool: {tool_detected}\n{preview[:200]}..."
-        
-        return jsonify({
-            "status": "Email test completed",
-            "results": results
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "Email test failed",
-            "error": str(e)
-        }), 500
-
-@app.route("/system_status")
-def system_status():
-    """Comprehensive system status check"""
-    try:
-        test_bot = EnhancedChatbot()
-        
-        status_report = {
-            "ollama_connection": len(test_bot.available_models) > 0,
-            "email_service": True,
-            "pdf_processing": True,
-            "image_analysis": test_bot.get_multimodal_model() is not None,
-            "active_conversations": len(conversations)
-        }
-        
-        return jsonify({
-            "status": "System status report",
-            "components": status_report,
-            "active_models": test_bot.available_models
-        })
-    except Exception as e:
-        return jsonify({
-            "status": "Status check failed",
-            "error": str(e)
-        }), 500
-
-# ============================================================
-#                   START SERVER
-# ============================================================
 if __name__ == "__main__":
-    print("🚀 AI Assistant Server Starting...")
-    print("📍 Web Interface: http://localhost:5000")
-    print("🔧 Test Endpoints:")
-    print("   /test_tools - Test all tools")
-    print("   /test_ollama - Check models")
-    print("   /test_email - Test email system")
-    print("   /system_status - System health")
+    print("AI Assistant Server Starting...")
+    print("Web Interface: http://localhost:5000")
     print("")
-    print("🛠️ Available Services:")
-    print("• Chat & information")
-    print("• PDF analysis")
-    print("• Email composition")
-    print("• Image analysis")
-    print("• Weather, news, calculations")
+    
+    # Initialize a test bot to check system status
+    try:
+        test_bot = EnhancedChatbot()
+        status = test_bot.diagnose_ollama_status()
+        
+        print("Initial System Check:")
+        print(f"  Ollama Running: {status.get('ollama_running', False)}")
+        print(f"  Available Models: {status.get('total_models', 0)}")
+        print(f"  Vision Model Available: {status.get('multimodal_available', False)}")
+        print(f"  OCR Available: {test_bot.ocr_available}")
+        
+        if status.get('multimodal_available'):
+            vision_model = test_bot.get_multimodal_model()
+            print(f"  Vision Model: {vision_model}")
+        else:
+            print("  Image Analysis: Install vision model with: ollama pull granite3.2-vision:latest")
+            
+        if test_bot.ocr_available:
+            print("  OCR Text Extraction: Ready")
+        else:
+            print("  OCR Text Extraction: Install Tesseract OCR")
+            
+    except Exception as e:
+        print(f"  System check failed: {e}")
+    
     print("")
-    app.run(debug=True, host="0.0.0.0", port=5000)
+    print("Starting Flask server...")
+    
+    # Get host and port from environment or use defaults
+    host = os.getenv('FLASK_HOST', '0.0.0.0')
+    port = int(os.getenv('FLASK_PORT', 5000))
+    
+    app.run(debug=True, host=host, port=port)

@@ -1,19 +1,21 @@
 # email_agent.py
 import re
 import smtplib
+import os
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from datetime import datetime
 
 class EmailAgent:
-    """Complete Email Agent with ALL Required Methods"""
+    """Complete Email Agent with PDF Support and Enhanced Features"""
     
     def __init__(self, smtp_server="smtp.gmail.com", smtp_port=587):
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
         
-        # Default credentials
-        self.default_smtp_username = "sudharaju6143@gmail.com"
-        self.default_smtp_password = "zkgaybvfsbjeuudh"  # App password
+        # Use environment variables for security
+        self.default_smtp_username = os.getenv('SMTP_USERNAME', 'sudharaju6143@gmail.com')
+        self.default_smtp_password = os.getenv('SMTP_PASSWORD', 'keyvxixygqegxvfw')
     
     def detect_email_type(self, user_message):
         """Detect what type of email the user wants to send"""
@@ -31,6 +33,8 @@ class EmailAgent:
             return 'job_application'
         elif any(word in message_lower for word in ['casual', 'friend', 'hi ', 'hello', 'hey', 'catch up']):
             return 'casual'
+        elif any(word in message_lower for word in ['pdf', 'document', 'analysis', 'report']):
+            return 'pdf_report'
         else:
             return 'general'
 
@@ -72,7 +76,9 @@ class EmailAgent:
         patterns_to_remove = [
             r'send email to', r'write mail to', r'email to', r'mail to',
             r'write a mail', r'write an email', r'send a mail',
-            r'to\s+\w+@\w+\.\w+', r'\b\w+@\w+\.\w+\b'
+            r'to\s+\w+@\w+\.\w+', r'\b\w+@\w+\.\w+\b',
+            r'send information contain in pdf', r'send information to',
+            r'\[PDF\]', r'pdf analysis', r'pdf content'
         ]
         
         content = user_message
@@ -180,6 +186,16 @@ class EmailAgent:
         
         return details
 
+    def _parse_pdf_report_details(self, user_message):
+        """Parse details for PDF report emails"""
+        details = {
+            'subject': 'PDF Analysis Report',
+            'recipient_name': 'Dear Recipient',
+            'purpose': 'Please find the PDF analysis report below'
+        }
+        
+        return details
+
     def _parse_general_details(self, user_message):
         """Parse details for general emails"""
         details = {
@@ -200,7 +216,7 @@ class EmailAgent:
             'purpose': 'to share important information',
             'date': '',
             'time': '',
-            'sender_name': 'Student'
+            'sender_name': 'AI Assistant User'
         }
 
     def parse_email_request(self, user_message):
@@ -213,7 +229,7 @@ class EmailAgent:
                 'email_type': email_type,
                 'recipient_email': '',
                 'subject': '',
-                'sender_name': 'Student',
+                'sender_name': 'AI Assistant User',
                 'date': '',
                 'time': '',
                 'location': '',
@@ -239,6 +255,8 @@ class EmailAgent:
                 email_info.update(self._parse_complaint_details(user_message))
             elif email_type == 'job_application':
                 email_info.update(self._parse_job_application_details(user_message))
+            elif email_type == 'pdf_report':
+                email_info.update(self._parse_pdf_report_details(user_message))
             elif email_type == 'casual':
                 email_info.update(self._parse_casual_details(user_message))
             else:
@@ -389,6 +407,23 @@ Best regards,
 
         return email_body.strip()
 
+    def _compose_pdf_report_email(self, email_info):
+        """Compose PDF report email"""
+        email_body = f"""Subject: {email_info['subject']}
+
+{email_info['recipient_name']},
+
+{email_info['purpose']}
+
+{email_info.get('main_content', 'Please find the detailed analysis attached.')}
+
+This report has been generated using AI analysis for your reference.
+
+Best regards,
+{email_info['sender_name']}"""
+
+        return email_body.strip()
+
     def _compose_general_email(self, email_info):
         """Compose general purpose email"""
         email_body = f"""Subject: {email_info['subject']}
@@ -406,28 +441,46 @@ Best regards,
 
         return email_body.strip()
 
-    def compose_email(self, email_info):
-        """Compose appropriate email based on detected type"""
+    def compose_email(self, email_info, pdf_content=None):
+        """Compose appropriate email based on detected type with optional PDF content"""
+        # Get base email
         if email_info['email_type'] == 'professional_meeting':
-            return self._compose_professional_email(email_info)
+            base_email = self._compose_professional_email(email_info)
         elif email_info['email_type'] == 'birthday_invitation':
-            return self._compose_birthday_invitation(email_info)
+            base_email = self._compose_birthday_invitation(email_info)
         elif email_info['email_type'] == 'thank_you':
-            return self._compose_thank_you_email(email_info)
+            base_email = self._compose_thank_you_email(email_info)
         elif email_info['email_type'] == 'complaint':
-            return self._compose_complaint_email(email_info)
+            base_email = self._compose_complaint_email(email_info)
         elif email_info['email_type'] == 'job_application':
-            return self._compose_job_application_email(email_info)
+            base_email = self._compose_job_application_email(email_info)
+        elif email_info['email_type'] == 'pdf_report':
+            base_email = self._compose_pdf_report_email(email_info)
         elif email_info['email_type'] == 'casual':
-            return self._compose_casual_email(email_info)
+            base_email = self._compose_casual_email(email_info)
         else:
-            return self._compose_general_email(email_info)
+            base_email = self._compose_general_email(email_info)
+        
+        # Add PDF content if provided
+        if pdf_content:
+            enhanced_email = f"""{base_email}
 
-    def generate_email_preview(self, user_message):
+📎 **PDF ANALYSIS REPORT**
+
+{pdf_content}
+
+---
+*This email includes analyzed PDF content generated by AI Assistant.*
+"""
+            return enhanced_email
+        else:
+            return base_email
+
+    def generate_email_preview(self, user_message, pdf_content=None):
         """Generate email preview for user confirmation"""
         try:
             email_info = self.parse_email_request(user_message)
-            email_body = self.compose_email(email_info)
+            email_body = self.compose_email(email_info, pdf_content)
             
             email_type_display = {
                 'professional_meeting': '📊 Professional Meeting Request',
@@ -436,38 +489,45 @@ Best regards,
                 'complaint': '⚠️ Complaint Email',
                 'job_application': '💼 Job Application',
                 'casual': '💬 Casual Message',
+                'pdf_report': '📄 PDF Report Email',
                 'general': '📧 General Email'
             }
             
+            has_pdf = " (with PDF content)" if pdf_content else ""
+            
             preview = f"""
-{email_type_display.get(email_info['email_type'], '📧 EMAIL')}
+{email_type_display.get(email_info['email_type'], '📧 EMAIL')}{has_pdf}
 
 **To:** {email_info['recipient_email']}
 **Subject:** {email_info['subject']}
 
-**Message:**
+**Message Preview:**
 {email_body}
 
 ---
-*Detected as: {email_info['email_type'].replace('_', ' ').title()}*
+*Ready to send this {email_info['email_type'].replace('_', ' ')}?*
 """
             return preview
             
         except Exception as e:
             return f"❌ Error composing email: {str(e)}"
 
-    def send_email_auto(self, user_message):
-        """Automatically send ANY type of email"""
+    def send_email_auto(self, user_message, pdf_content=None):
+        """Automatically send ANY type of email with PDF content support"""
         try:
             # Parse the email request
             email_info = self.parse_email_request(user_message)
             
             # Check if we have a recipient email
-            if not email_info['recipient_email']:
+            if not email_info['recipient_email'] or email_info['recipient_email'] == 'recipient@example.com':
                 return "❌ No recipient email address found. Please specify an email address in your request."
             
-            # Compose the email
-            email_body = self.compose_email(email_info)
+            # Check credentials
+            if not self.default_smtp_username or not self.default_smtp_password:
+                return "❌ SMTP credentials not configured. Please check your environment variables."
+            
+            # Compose the email with PDF content
+            email_body = self.compose_email(email_info, pdf_content)
             
             # Extract subject from email body (first line)
             subject_line = email_body.split('\n')[0]
@@ -492,27 +552,76 @@ Best regards,
                 server.quit()
                 
                 email_type_name = email_info['email_type'].replace('_', ' ').title()
-                return f"✅ **{email_type_name} SENT SUCCESSFULLY!**\n\n📧 **To:** {email_info['recipient_email']}\n📋 **Subject:** {subject}\n\nYour {email_type_name.lower()} has been sent successfully!"
+                pdf_status = " with PDF content" if pdf_content else ""
+                
+                return f"✅ **{email_type_name} SENT SUCCESSFULLY{pdf_status.upper()}!**\n\n📧 **To:** {email_info['recipient_email']}\n📋 **Subject:** {subject}\n\nYour {email_type_name.lower()} has been sent successfully!"
                 
             except smtplib.SMTPAuthenticationError:
-                return "❌ SMTP Authentication Failed. Please check your email credentials."
+                return "❌ SMTP Authentication Failed. Please check your email credentials in environment variables."
             except Exception as e:
                 return f"❌ Failed to send email: {str(e)}"
                 
         except Exception as e:
             return f"❌ Error processing email request: {str(e)}"
 
+    def extract_email_info(self, user_message):
+        """Extract email information for external use"""
+        return self.parse_email_request(user_message)
+
+    def send_email(self, email_data, smtp_username, smtp_password):
+        """Send email with provided credentials (for manual credential input)"""
+        try:
+            # Create email message
+            msg = MIMEMultipart()
+            msg['From'] = smtp_username
+            msg['To'] = email_data['recipient_email']
+            msg['Subject'] = email_data['subject']
+            
+            # Add email body
+            email_body = email_data.get('body', '')
+            if not email_body:
+                # Compose email if body not provided
+                email_body = self.compose_email({
+                    'recipient_email': email_data['recipient_email'],
+                    'subject': email_data['subject'],
+                    'email_type': email_data.get('email_type', 'general'),
+                    'main_content': email_data.get('main_content', ''),
+                    'sender_name': email_data.get('sender_name', 'AI Assistant')
+                }, email_data.get('pdf_content'))
+            
+            msg.attach(MIMEText(email_body, 'plain'))
+            
+            # Send email
+            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
+            server.starttls()
+            server.login(smtp_username, smtp_password)
+            server.send_message(msg)
+            server.quit()
+            
+            return True, f"✅ Email sent successfully to {email_data['recipient_email']}"
+            
+        except smtplib.SMTPAuthenticationError:
+            return False, "❌ SMTP Authentication Failed. Please check your email credentials."
+        except Exception as e:
+            return False, f"❌ Failed to send email: {str(e)}"
+
 # Test the COMPLETE email agent
 def test_complete_email_agent():
-    """Test the complete email agent with ALL email types"""
+    """Test the complete email agent with ALL email types and PDF support"""
     email_agent = EmailAgent()
     
     test_messages = [
+        # PDF Report email
+        "send information contain in pdf send information to test@example.com [PDF]",
+        
         # Birthday invitation
         "write a mail to friend invite you to my birthday party on 1 june 2026 in sv hotel in parlakhimundi in the evening , the party start onward 6 'o' clock . the mail is nm8879402@gmail.com",
         
+        # Professional meeting
+        "send email to professor@college.edu requesting meeting to discuss my project",
+        
         # Thank you email
-        "send thank you email to professor@college.edu for helping me with my project",
+        "send thank you email to mentor@company.com for helping me with my project",
         
         # Complaint email
         "write a complaint email to support@company.com about the poor service I received",
@@ -523,26 +632,54 @@ def test_complete_email_agent():
         # Casual message
         "send a casual email to my friend john@gmail.com just to say hi",
         
-        # General email
-        "email to info@website.com requesting more information about your services"
+        # General email with PDF
+        "email to info@website.com with the PDF analysis report"
     ]
     
-    print("🧪 Testing COMPLETE Email Agent - ALL Email Types...")
+    # Sample PDF content for testing
+    sample_pdf_content = """📄 PDF ANALYSIS REPORT
+
+Document Information:
+• Pages: 2
+• Title: What Is a Heart Attack?
+• Author: American Heart Association
+• Content Type: research_paper
+
+Summary:
+A heart attack occurs when blood flow to the heart muscle is blocked, typically by plaque buildup in coronary arteries. This comprehensive analysis covers causes, symptoms, prevention strategies, and treatment options.
+
+Key Points:
+• Heart attacks are medical emergencies requiring immediate attention
+• Common symptoms include chest pain, shortness of breath, and arm/jaw pain
+• Lifestyle changes can significantly reduce risk factors
+• Early intervention is crucial for positive outcomes
+
+Word Count: 801"""
+
+    print("🧪 Testing COMPLETE Email Agent - ALL Email Types with PDF Support...")
     for i, message in enumerate(test_messages, 1):
-        print(f"\n{'='*60}")
+        print(f"\n{'='*70}")
         print(f"💬 Test {i}: {message}")
-        print(f"{'='*60}")
+        print(f"{'='*70}")
         
         # Test detection
         email_type = email_agent.detect_email_type(message)
         print(f"🔍 Detected Type: {email_type}")
         
-        # Test preview
-        preview = email_agent.generate_email_preview(message)
-        print("📧 PREVIEW:")
+        # Test parsing
+        email_info = email_agent.parse_email_request(message)
+        print(f"📧 Parsed Info:")
+        print(f"   Recipient: {email_info['recipient_email']}")
+        print(f"   Subject: {email_info['subject']}")
+        
+        # Test preview with PDF content for PDF-related emails
+        use_pdf = 'pdf' in message.lower()
+        pdf_content = sample_pdf_content if use_pdf else None
+        preview = email_agent.generate_email_preview(message, pdf_content)
+        print("📋 PREVIEW:")
         print(preview)
         
-        print(f"{'='*60}")
+        print(f"{'='*70}")
 
 if __name__ == "__main__":
     test_complete_email_agent()
