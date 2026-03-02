@@ -310,10 +310,6 @@
             color: #667eea;
         }
 
-        .upload-option.pdf-option {
-            color: #ff6b6b;
-        }
-
         .message-input {
             flex: 1;
             background: #1a1a1a;
@@ -430,10 +426,6 @@
 
         .file-icon {
             font-size: 1.5rem;
-        }
-
-        .pdf-icon {
-            color: #ff6b6b;
         }
 
         .image-icon {
@@ -680,11 +672,7 @@
                     <div class="upload-options" id="uploadOptions">
                         <label class="upload-option image-option">
                             🖼️ Upload Image
-                            <input type="file" accept="image/*" style="display: none;" onchange="handleFileUpload(event, 'image')">
-                        </label>
-                        <label class="upload-option pdf-option">
-                            📄 Upload PDF
-                            <input type="file" accept=".pdf" style="display: none;" onchange="handleFileUpload(event, 'pdf')">
+                            <input type="file" accept="image/*" style="display: none;" onchange="handleFileUpload(event)">
                         </label>
                     </div>
                     
@@ -708,7 +696,6 @@
 
     <script>
         let currentImage = null;
-        let currentPDF = null;
         let conversationId = '';
 
         // Initialize conversation
@@ -730,7 +717,6 @@
             
             // Clear files
             currentImage = null;
-            currentPDF = null;
             clearFilePreviews();
             
             // Initialize new conversation
@@ -759,20 +745,14 @@
             uploadOverlay.classList.remove('active');
         }
 
-        // Handle file upload (both images and PDFs)
-        function handleFileUpload(event, fileType) {
+        // Handle file upload (image only)
+        function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
 
             // Validate file type
-            if (fileType === 'image' && !file.type.startsWith('image/')) {
+            if (!file.type.startsWith('image/')) {
                 alert('Please select a valid image file.');
-                event.target.value = '';
-                return;
-            }
-
-            if (fileType === 'pdf' && file.type !== 'application/pdf') {
-                alert('Please select a valid PDF file.');
                 event.target.value = '';
                 return;
             }
@@ -780,57 +760,31 @@
             const reader = new FileReader();
             
             reader.onload = function(e) {
-                if (fileType === 'image') {
-                    currentImage = e.target.result;
-                    currentPDF = null; // Clear PDF if image is selected
-                } else if (fileType === 'pdf') {
-                    currentPDF = e.target.result;
-                    currentImage = null; // Clear image if PDF is selected
-                }
-                
-                showFilePreview(file, fileType);
+                currentImage = e.target.result;
+                showFilePreview(file);
                 closeUploadOptions();
                 // Clear the file input
                 event.target.value = '';
             };
 
-            if (fileType === 'image') {
-                reader.readAsDataURL(file);
-            } else if (fileType === 'pdf') {
-                reader.readAsDataURL(file);
-            }
+            reader.readAsDataURL(file);
         }
 
         // Show file preview
-        function showFilePreview(file, fileType) {
+        function showFilePreview(file) {
             const previewsDiv = document.getElementById('filePreviews');
             const fileId = Date.now(); // Unique ID for each file
             
-            let previewHTML = '';
-            
-            if (fileType === 'image') {
-                previewHTML = `
-                    <div class="file-preview" id="file-${fileId}">
-                        <span class="file-icon image-icon">🖼️</span>
-                        <div class="file-info">
-                            <div class="file-name">${file.name}</div>
-                            <div class="file-size">${formatFileSize(file.size)}</div>
-                        </div>
-                        <button class="remove-file" onclick="removeFile('${fileId}', 'image')">Remove</button>
+            const previewHTML = `
+                <div class="file-preview" id="file-${fileId}">
+                    <span class="file-icon image-icon">🖼️</span>
+                    <div class="file-info">
+                        <div class="file-name">${file.name}</div>
+                        <div class="file-size">${formatFileSize(file.size)}</div>
                     </div>
-                `;
-            } else if (fileType === 'pdf') {
-                previewHTML = `
-                    <div class="file-preview" id="file-${fileId}">
-                        <span class="file-icon pdf-icon">📄</span>
-                        <div class="file-info">
-                            <div class="file-name">${file.name}</div>
-                            <div class="file-size">${formatFileSize(file.size)}</div>
-                        </div>
-                        <button class="remove-file" onclick="removeFile('${fileId}', 'pdf')">Remove</button>
-                    </div>
-                `;
-            }
+                    <button class="remove-file" onclick="removeFile('${fileId}')">Remove</button>
+                </div>
+            `;
             
             previewsDiv.innerHTML = previewHTML; // Replace any existing preview
         }
@@ -845,17 +799,13 @@
         }
 
         // Remove uploaded file
-        function removeFile(fileId, fileType) {
+        function removeFile(fileId) {
             const previewElement = document.getElementById(`file-${fileId}`);
             if (previewElement) {
                 previewElement.remove();
             }
             
-            if (fileType === 'image') {
-                currentImage = null;
-            } else if (fileType === 'pdf') {
-                currentPDF = null;
-            }
+            currentImage = null;
             
             // Clear file previews if no files left
             const previewsDiv = document.getElementById('filePreviews');
@@ -878,7 +828,7 @@
             const message = messageInput.value.trim();
             const sendBtn = document.getElementById('sendBtn');
 
-            if (!message && !currentImage && !currentPDF) return;
+            if (!message && !currentImage) return;
 
             // Disable send button
             sendBtn.disabled = true;
@@ -898,7 +848,6 @@
                 const payload = {
                     message: message,
                     image: currentImage,
-                    pdf: currentPDF,
                     conversation_id: conversationId
                 };
 
@@ -930,9 +879,8 @@
                     }
                 }
 
-                // Clear current files after sending
+                // Clear current image after sending
                 currentImage = null;
-                currentPDF = null;
 
             } catch (error) {
                 hideTypingIndicator();
@@ -967,10 +915,8 @@
                 let displayContent = content;
                 if (!content && currentImage) {
                     displayContent = '[Image Uploaded]';
-                } else if (!content && currentPDF) {
-                    displayContent = '[PDF Uploaded]';
-                } else if (content && (currentImage || currentPDF)) {
-                    displayContent = content + ' ' + (currentImage ? '[Image]' : '[PDF]');
+                } else if (content && currentImage) {
+                    displayContent = content + ' [Image]';
                 }
                 
                 messageDiv.textContent = displayContent;
